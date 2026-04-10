@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from datetime import datetime, timezone
 from models.message import ChatRequest
 from config.db import messages_collection
-from services.chatbot import detect_intent, generate_response
+from services.agent import app as agent_app
 from services.memory import save_to_memory, get_memory
 
 router = APIRouter()
@@ -19,19 +19,17 @@ def chat(req: ChatRequest):
     messages_collection.insert_one(client_msg)
     save_to_memory(req.session_id, {"sender": "client", "message": req.message})
 
-    history = get_memory(req.session_id)
-    intent = detect_intent(req.message)
-    reply = generate_response(intent)
+    result = agent_app.invoke({"input": req.message})
+    reply = result["output"]
 
     bot_msg = {
         "user_id": req.user_id,
         "session_id": req.session_id,
         "message": reply,
         "sender": "bot",
-        "intent": intent,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     messages_collection.insert_one(bot_msg)
-    save_to_memory(req.session_id, {"sender": "bot", "message": reply, "intent": intent})
+    save_to_memory(req.session_id, {"sender": "bot", "message": reply})
 
-    return {"reply": reply, "intent": intent}
+    return {"reply": reply}

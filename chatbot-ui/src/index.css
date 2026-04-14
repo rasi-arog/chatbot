@@ -43,6 +43,9 @@ body {
 }
 
 .session-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 12px 16px;
   margin-bottom: 8px;
   border-radius: 12px;
@@ -50,10 +53,51 @@ body {
   font-size: 14px;
   font-weight: 500;
   color: #554e44;
+  transition: all 0.2s ease;
+}
+
+.session-item-content {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
   white-space: nowrap;
+}
+
+.session-title {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.delete-chat-btn {
+  background: transparent;
+  border: none;
+  color: #a8a092;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 6px;
+  opacity: 0;
   transition: all 0.2s ease;
+}
+
+.session-item:hover .delete-chat-btn {
+  opacity: 1;
+}
+
+.delete-chat-btn:hover {
+  background: rgba(0,0,0,0.05);
+  color: #c0392b;
+}
+
+.session-item.active .delete-chat-btn {
+  color: #e8f5f0;
+}
+
+.session-item.active .delete-chat-btn:hover {
+  background: rgba(255,255,255,0.2);
+  color: white;
 }
 
 .session-item:hover {
@@ -227,3 +271,138 @@ input:focus {
 .input-box button:active {
   transform: scale(0.97);
 }
+
+/* Structured bot message wrapper */
+.bot-msg.structured {
+  background: #f0eadd;
+  border-radius: 20px 20px 20px 4px;
+  padding: 16px 20px;
+  align-self: flex-start;
+  max-width: 85%;
+}
+
+.bot-msg.structured p {
+  margin: 4px 0 12px;
+  font-size: 14px;
+  color: #554e44;
+}
+
+.structured-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #3e8166;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+/* Hospital cards grid */
+.card-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hospital-card {
+  background: #fefdf9;
+  border: 1.5px solid #e2dcca;
+  border-radius: 14px;
+  padding: 12px 16px;
+}
+
+.hospital-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #3e3831;
+  margin-bottom: 4px;
+}
+
+.hospital-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #928b7e;
+  margin-top: 2px;
+}
+
+/* Doctor badge */
+.doctor-badge {
+  display: inline-block;
+  background: #3e8166;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 16px;
+  border-radius: 20px;
+  margin-top: 4px;
+}
+
+/* Alert / emergency message */
+.bot-msg.alert-msg {
+  background: #fff0f0;
+  border: 1.5px solid #e57373;
+  color: #c0392b;
+  font-weight: 600;
+  border-radius: 20px 20px 20px 4px;
+  padding: 14px 20px;
+  align-self: flex-start;
+  max-width: 80%;
+  font-size: 15px;
+}
+
+/* Typing indicator */
+.bot-msg.typing {
+  color: #928b7e;
+  font-style: italic;
+  background: #f0eadd;
+}
+
+/* Location badge in header */
+.location-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #3e8166;
+  background: #e8f5f0;
+  padding: 4px 10px;
+  border-radius: 20px;
+  margin-left: auto;
+}
+
+.hospital-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.hospital-meta.distance {
+  background: #e8f5f0;
+  color: #3e8166;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.maps-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #3e8166;
+  text-decoration: none;
+  border: 1.5px solid #3e8166;
+  padding: 4px 12px;
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+
+.maps-link:hover {
+  background: #3e8166;
+  color: white;
+}
+

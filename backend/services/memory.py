@@ -11,3 +11,6 @@ def save_to_memory(session_id, message):
 def get_memory(session_id):
     data = redis_client.get(f"chat:{session_id}")
     return json.loads(data) if data else []
+
+def clear_memory(session_id):
+    redis_client.delete(f"chat:{session_id}")

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { HeartPulse, Building2, Activity, Stethoscope, Send, Plus, MessageSquare, MapPin, Pill, X } from "lucide-react";
+import { HeartPulse, Building2, Activity, Stethoscope, Send, Plus, MessageSquare, MapPin, Pill, X, Menu } from "lucide-react";
 
 const API = "http://127.0.0.1:8000";
 
@@ -91,6 +91,7 @@ export default function App() {
   const [sessions, setSessions] = useState([]);
   const [location, setLocation] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const chatEndRef = useRef(null);
 
   const requestLocation = () => {
@@ -191,7 +192,11 @@ export default function App() {
 
   return (
     <div className="app-layout">
-      <aside className="sidebar">
+      {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
+      <aside className={`sidebar${sidebarOpen ? " sidebar-open" : ""}`}>
+        <button className="sidebar-close-btn" onClick={() => setSidebarOpen(false)}>
+          <X size={18} />
+        </button>
         <button className="new-chat-btn" onClick={startNewChat}>
           <Plus size={18} /> New Chat
         </button>
@@ -219,6 +224,9 @@ export default function App() {
 
       <div className="container">
         <header style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <button className="hamburger-btn" onClick={() => setSidebarOpen(true)}>
+            <Menu size={22} />
+          </button>
           <HeartPulse size={28} color="#3e8166" />
           Health Assistant
           {location && (

@@ -406,3 +406,113 @@ input:focus {
   color: white;
 }
 
+/* Hamburger button — hidden on desktop */
+.hamburger-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #3e3831;
+  padding: 4px;
+  border-radius: 8px;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.hamburger-btn:hover {
+  background: #f1eddf;
+}
+
+/* Sidebar close button — hidden on desktop */
+.sidebar-close-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #928b7e;
+  padding: 4px;
+  border-radius: 8px;
+  align-self: flex-end;
+  margin-bottom: 8px;
+  transition: background 0.2s;
+}
+
+.sidebar-close-btn:hover {
+  background: #e2dcca;
+  color: #3e3831;
+}
+
+/* Backdrop overlay */
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .app-layout {
+    padding: 0;
+    gap: 0;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 280px;
+    border-radius: 0 24px 24px 0;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.12);
+  }
+
+  .sidebar.sidebar-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 99;
+  }
+
+  .hamburger-btn {
+    display: flex;
+  }
+
+  .sidebar-close-btn {
+    display: flex;
+  }
+
+  .container {
+    border-radius: 0;
+    width: 100%;
+  }
+
+  header {
+    padding: 16px 16px 14px;
+    font-size: 20px;
+  }
+
+  .chat-box {
+    padding: 16px;
+  }
+
+  .quick-actions {
+    padding: 0 16px 12px;
+  }
+
+  .input-box {
+    padding: 12px 16px 16px;
+  }
+
+  .user-msg, .bot-msg, .bot-msg.structured, .bot-msg.alert-msg {
+    max-width: 90%;
+  }
+}
+

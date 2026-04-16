@@ -3,23 +3,28 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from services.llm import llm
 from services.tools import tools, set_location
 
-system_prompt = """You are a healthcare assistant. You MUST use the available tools for all health-related queries.
+system_prompt = """You are a friendly healthcare assistant. Use tools ONLY when clearly needed.
 
-Tool usage rules:
-- User asks about symptoms or health advice → use health_advice tool
-- User asks which doctor or specialist to see → use doctor_suggestion tool
-- User asks for nearby hospital or clinic → use hospital_finder tool
+Tool usage rules (be strict):
+- User explicitly mentions symptoms or asks for health advice → use health_advice tool
+- User explicitly asks which doctor or specialist to see → use doctor_suggestion tool
+- User explicitly asks for nearby hospital or clinic → use hospital_finder tool
 - Emergency (chest pain, can't breathe, unconscious, heart attack, stroke) → respond immediately with type "alert"
 
-If no tool applies, respond in this EXACT JSON format:
+Do NOT use any tool for:
+- Greetings (hello, hi, how are you)
+- Personal info (name, age, location)
+- General conversation
+- Vague questions not related to health
+
+For non-tool responses, reply in this EXACT JSON format:
 {
   "type": "text",
   "message": "<your response here>",
   "data": {}
 }
 
-Always add a disclaimer that you do not provide medical diagnosis.
-Never answer health questions directly without using a tool."""
+Always add a disclaimer that you do not provide medical diagnosis."""
 
 _llm_with_tools = llm.bind_tools(tools)
 
@@ -57,20 +62,25 @@ class AgentWrapper:
                     messages.append(HumanMessage(content=msg["message"]))
                 elif msg["sender"] == "bot":
                     content = msg["message"]
-                    if isinstance(content, dict):
-                        content = content.get("message", str(content))
+                    if not content or not isinstance(content, str):
+                        continue
                     messages.append(AIMessage(content=content))
 
         messages.append(HumanMessage(content=inputs["input"]))
 
-        response = _llm_with_tools.invoke(messages)
+        # Only allow tools if message contains health-related keywords
+        health_keywords = ["symptom", "fever", "pain", "cough", "cold", "headache", "doctor", "hospital", "clinic", "medicine", "sick", "ill", "disease", "infection", "allergy", "diabetes", "cancer", "anxiety", "depression", "stomach", "chest", "breathing", "rash", "injury", "blood", "heart", "lung", "kidney", "throat", "ear", "eye", "back", "joint", "bone", "pregnancy", "mental", "health", "nearby", "near me", "find"]
+        force_no_tools = not any(kw in inputs["input"].lower() for kw in health_keywords)
+
+        response = (_llm_with_tools if not force_no_tools else llm).invoke(messages)
 
         # LLM decided to call a tool
         if response.tool_calls:
             call = response.tool_calls[0]
             tool = _tool_map().get(call["name"])
             if tool:
-                tool_input = list(call["args"].values())[0] if call["args"] else inputs["input"]
+                args = call.get("args", {})
+                tool_input = args.get("__arg1") or args.get("query") or (list(args.values())[0] if args else inputs["input"])
                 result = tool.func(tool_input)
                 print(f"[AGENT] Tool: {call['name']} | Input: {tool_input}")
                 return {"output": result}
@@ -85,9 +95,12 @@ class AgentWrapper:
 
         # Try to parse if LLM returned JSON string
         try:
-            parsed = json.loads(content)
-            if "type" in parsed and "message" in parsed:
-                return {"output": parsed}
+            # Handle cases where LLM appends JSON after plain text
+            json_start = content.find('{')
+            if json_start != -1:
+                parsed = json.loads(content[json_start:])
+                if "type" in parsed and "message" in parsed:
+                    return {"output": parsed}
         except (json.JSONDecodeError, TypeError):
             pass
 

@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
-import { HeartPulse, Building2, Activity, Stethoscope, Send, Plus, MessageSquare, MapPin, Pill, X, Menu } from "lucide-react";
+import { HeartPulse, Building2, Activity, Stethoscope, Send, Plus, MessageSquare, MapPin, Pill, X, Menu, Mic, MicOff } from "lucide-react";
 
-const API = "http://127.0.0.1:8000";
+const API = "";
 
 function HospitalCard({ hospital }) {
   return (
@@ -92,7 +92,44 @@ export default function App() {
   const [location, setLocation] = useState(null);
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [listening, setListening] = useState(false);
   const chatEndRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const micBtnRef = useRef(null);
+  const sendMessageRef = useRef(null);
+  const listeningRef = useRef(false);
+
+  const startListening = useCallback(() => {
+    if (listeningRef.current) return;
+    listeningRef.current = true;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) { alert("Speech recognition not supported in this browser."); return; }
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    recognitionRef.current = recognition;
+    recognition.onstart = () => setListening(true);
+    recognition.onend = () => { setListening(false); listeningRef.current = false; };
+    recognition.onerror = (e) => { console.error("[MIC] onerror:", e.error); setListening(false); listeningRef.current = false; };
+    recognition.onresult = (event) => {
+      const text = event.results[0][0].transcript;
+      setInput(text);
+    };
+    try { recognition.start(); } catch (err) { console.error("[MIC] start() threw:", err); listeningRef.current = false; }
+  }, []);
+
+  const stopListening = useCallback(() => {
+    recognitionRef.current?.stop();
+  }, []);
+
+  useEffect(() => {
+    const btn = micBtnRef.current;
+    if (!btn) return;
+    const onTouch = (e) => { e.preventDefault(); startListening(); };
+    btn.addEventListener("touchstart", onTouch, { passive: false });
+    return () => btn.removeEventListener("touchstart", onTouch);
+  }, [startListening]);
 
   const requestLocation = () => {
     if (!navigator.geolocation) return;
@@ -115,11 +152,16 @@ export default function App() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const loadSessions = async () => {
-    try {
-      const res = await axios.get(`${API}/chat/sessions/1`);
-      setSessions(res.data.sessions);
-    } catch {}
+  const loadSessions = async (retries = 3) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const res = await axios.get(`${API}/chat/sessions/1`);
+        setSessions(res.data.sessions);
+        return;
+      } catch {
+        if (i < retries - 1) await new Promise(r => setTimeout(r, 2000));
+      }
+    }
   };
 
   const loadHistory = async (id) => {
@@ -189,6 +231,8 @@ export default function App() {
       setLoading(false);
     }
   };
+
+  sendMessageRef.current = sendMessage;
 
   return (
     <div className="app-layout">
@@ -271,6 +315,15 @@ export default function App() {
             placeholder="Ask about health..."
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           />
+          <button
+            ref={micBtnRef}
+            onClick={() => listeningRef.current ? stopListening() : startListening()}
+            onTouchEnd={stopListening}
+            title={listening ? "Click to stop" : "Click to speak"}
+            style={{ marginLeft: "8px", padding: "0 16px", border: "none", background: listening ? "#c0392b" : "#f0eadd", color: listening ? "white" : "#3e8166", borderRadius: "28px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s", userSelect: "none" }}
+          >
+            {listening ? <MicOff size={18} /> : <Mic size={18} />}
+          </button>
           <button onClick={() => sendMessage()} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
             <Send size={18} /> Send
           </button>

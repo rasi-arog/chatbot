@@ -1,7 +1,7 @@
 from pymongo import MongoClient
 import redis
 
-mongo_client = MongoClient("mongodb://localhost:27017")
+mongo_client = MongoClient("mongodb://localhost:27017", serverSelectionTimeoutMS=5000)
 db = mongo_client["healthcare_chatbot"]
 messages_collection = db["messages"]
 

@@ -94,42 +94,40 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [listening, setListening] = useState(false);
   const chatEndRef = useRef(null);
-  const recognitionRef = useRef(null);
   const micBtnRef = useRef(null);
   const sendMessageRef = useRef(null);
-  const listeningRef = useRef(false);
+  const mediaRecorderRef = useRef(null);
+  const chunksRef = useRef([]);
 
-  const startListening = useCallback(() => {
-    if (listeningRef.current) return;
-    listeningRef.current = true;
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) { alert("Speech recognition not supported in this browser."); return; }
-    const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.interimResults = false;
-    recognition.continuous = false;
-    recognitionRef.current = recognition;
-    recognition.onstart = () => setListening(true);
-    recognition.onend = () => { setListening(false); listeningRef.current = false; };
-    recognition.onerror = (e) => { console.error("[MIC] onerror:", e.error); setListening(false); listeningRef.current = false; };
-    recognition.onresult = (event) => {
-      const text = event.results[0][0].transcript;
-      setInput(text);
-    };
-    try { recognition.start(); } catch (err) { console.error("[MIC] start() threw:", err); listeningRef.current = false; }
+  const startListening = useCallback(async () => {
+    if (mediaRecorderRef.current) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
+      mediaRecorder.ondataavailable = (e) => chunksRef.current.push(e.data);
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const formData = new FormData();
+        formData.append("file", blob, "audio.webm");
+        mediaRecorderRef.current = null;
+        try {
+          const res = await fetch("/transcribe", { method: "POST", body: formData });
+          const data = await res.json();
+          if (data.text) setInput(data.text);
+        } catch (err) { console.error("[Whisper] error:", err); }
+      };
+      mediaRecorder.start();
+      setListening(true);
+    } catch (err) { console.error("[MIC] error:", err); }
   }, []);
 
   const stopListening = useCallback(() => {
-    recognitionRef.current?.stop();
+    mediaRecorderRef.current?.stop();
+    mediaRecorderRef.current?.stream?.getTracks().forEach(t => t.stop());
+    setListening(false);
   }, []);
-
-  useEffect(() => {
-    const btn = micBtnRef.current;
-    if (!btn) return;
-    const onTouch = (e) => { e.preventDefault(); startListening(); };
-    btn.addEventListener("touchstart", onTouch, { passive: false });
-    return () => btn.removeEventListener("touchstart", onTouch);
-  }, [startListening]);
 
   const requestLocation = () => {
     if (!navigator.geolocation) return;
@@ -317,8 +315,7 @@ export default function App() {
           />
           <button
             ref={micBtnRef}
-            onClick={() => listeningRef.current ? stopListening() : startListening()}
-            onTouchEnd={stopListening}
+            onClick={() => listening ? stopListening() : startListening()}
             title={listening ? "Click to stop" : "Click to speak"}
             style={{ marginLeft: "8px", padding: "0 16px", border: "none", background: listening ? "#c0392b" : "#f0eadd", color: listening ? "white" : "#3e8166", borderRadius: "28px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s", userSelect: "none" }}
           >

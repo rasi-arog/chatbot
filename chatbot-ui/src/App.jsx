@@ -91,6 +91,7 @@ export default function App() {
   const [sessions, setSessions] = useState([]);
   const [location, setLocation] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [listening, setListening] = useState(false);
   const chatEndRef = useRef(null);
@@ -117,6 +118,7 @@ export default function App() {
           const data = await res.json();
           if (data.text) setInput(data.text);
         } catch (err) { console.error("[Whisper] error:", err); }
+        finally { setTranscribing(false); }
       };
       mediaRecorder.start();
       setListening(true);
@@ -127,6 +129,7 @@ export default function App() {
     mediaRecorderRef.current?.stop();
     mediaRecorderRef.current?.stream?.getTracks().forEach(t => t.stop());
     setListening(false);
+    setTranscribing(true);
   }, []);
 
   const requestLocation = () => {
@@ -308,16 +311,18 @@ export default function App() {
 
         <div className="input-box">
           <input
-            value={input}
+            value={listening ? "" : transcribing ? "" : input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about health..."
+            placeholder={listening ? "Listening..." : transcribing ? "Transcribing..." : "Ask about health..."}
+            disabled={listening || transcribing}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           />
           <button
             ref={micBtnRef}
             onClick={() => listening ? stopListening() : startListening()}
             title={listening ? "Click to stop" : "Click to speak"}
-            style={{ marginLeft: "8px", padding: "0 16px", border: "none", background: listening ? "#c0392b" : "#f0eadd", color: listening ? "white" : "#3e8166", borderRadius: "28px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s", userSelect: "none" }}
+            disabled={transcribing}
+            style={{ marginLeft: "8px", padding: "0 16px", border: "none", background: listening ? "#c0392b" : "#f0eadd", color: listening ? "white" : "#3e8166", borderRadius: "28px", cursor: transcribing ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s", userSelect: "none" }}
           >
             {listening ? <MicOff size={18} /> : <Mic size={18} />}
           </button>

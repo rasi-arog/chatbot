@@ -15,7 +15,7 @@ def find_hospital(query: str) -> dict:
     if lat is None or lng is None:
         return {
             "type": "text",
-            "message": "📍 I need your location to find nearby hospitals. Please enable location access and try again.",
+            "message": "I need your location to find nearby hospitals. Please enable location access and try again.",
             "data": {},
         }
     try:
@@ -25,7 +25,7 @@ def find_hospital(query: str) -> dict:
     if not hospitals:
         return {
             "type": "text",
-            "message": "No hospitals found within 5km of your location.",
+            "message": "No hospitals found within 10km of your location.",
             "data": {},
         }
     return {

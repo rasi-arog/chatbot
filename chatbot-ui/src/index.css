@@ -219,11 +219,102 @@ header {
 }
 
 /* Input Area */
-.input-box {
-  display: flex;
-  padding: 20px 24px 24px;
+.input-area {
   background: #fefdf9;
   border-top: 2px solid rgba(226, 220, 202, 0.4);
+  padding: 0 24px 24px;
+}
+
+.image-preview-strip {
+  display: flex;
+  gap: 8px;
+  padding: 12px 0 8px;
+  flex-wrap: wrap;
+}
+
+.preview-thumb {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  overflow: visible;
+}
+
+.preview-thumb img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1.5px solid #e2dcca;
+}
+
+.remove-img-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: unset !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: #3e3831 !important;
+  color: white !important;
+  border: none;
+  border-radius: 50% !important;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3) !important;
+}
+
+.remove-img-btn:hover {
+  background: #c0392b !important;
+  box-shadow: none !important;
+}
+
+.input-box {
+  display: flex;
+  padding: 8px 0 0;
+}
+
+.input-wrapper {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-wrapper input {
+  width: 100%;
+  padding-left: 48px;
+}
+
+.attach-btn {
+  position: absolute;
+  left: 10px;
+  z-index: 1;
+  background: transparent;
+  border: none;
+  color: #928b7e;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: unset !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
+  transition: color 0.2s, background 0.2s;
+}
+
+.attach-btn:hover {
+  color: #3e8166;
+  background: #e8f5f0;
+  box-shadow: none !important;
 }
 
 input {
@@ -503,8 +594,8 @@ input:focus {
     padding: 0 16px 12px;
   }
 
-  .input-box {
-    padding: 12px 16px 16px;
+  .input-area {
+    padding: 0 16px 16px;
   }
 
   .user-msg, .bot-msg, .bot-msg.structured, .bot-msg.alert-msg {

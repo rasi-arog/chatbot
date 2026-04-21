@@ -1,5 +1,6 @@
 import json
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langsmith import traceable
 from services.llm import llm
 from services.tools import tools, set_location
 
@@ -32,6 +33,7 @@ def _tool_map():
     return {t.name: t for t in tools}
 
 class AgentWrapper:
+    @traceable(name="healthcare-agent")
     def invoke(self, inputs: dict) -> dict:
         from services.memory import get_memory
 
@@ -48,7 +50,7 @@ class AgentWrapper:
             return {
                 "output": {
                     "type": "alert",
-                    "message": "⚠️ This sounds like a medical emergency! Call 911 or your local emergency number immediately.",
+                    "message": "This sounds like a medical emergency! Call 911 or your local emergency number immediately.",
                     "data": {},
                 }
             }
@@ -73,6 +75,10 @@ class AgentWrapper:
         force_no_tools = not any(kw in inputs["input"].lower() for kw in health_keywords)
 
         response = (_llm_with_tools if not force_no_tools else llm).invoke(messages)
+
+        # Log token usage
+        usage = response.response_metadata.get("usage", {}) or response.response_metadata.get("token_usage", {})
+        print(f"[TOKEN USAGE] Input: {usage.get('prompt_tokens', 0)}, Output: {usage.get('completion_tokens', 0)}, Total: {usage.get('total_tokens', 0)}")
 
         # LLM decided to call a tool
         if response.tool_calls:

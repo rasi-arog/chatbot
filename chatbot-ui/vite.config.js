@@ -14,6 +14,10 @@ export default defineConfig({
       '/transcribe': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
+      },
+      '/verify-image': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
       }
     }
   }

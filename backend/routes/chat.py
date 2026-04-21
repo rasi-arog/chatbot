@@ -1,9 +1,11 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, UploadFile, File, Form
 from datetime import datetime, timezone
+import tempfile, shutil, os
 from models.message import ChatRequest
 from config.db import messages_collection
 from services.agent import agent
 from services.memory import save_to_memory, get_memory, clear_memory
+from services.image_verify import verify_image
 
 router = APIRouter()
 
@@ -58,6 +60,43 @@ def get_history(session_id: str):
         messages_collection.find({"session_id": session_id}, {"_id": 0}).sort("created_at", 1)
     )
     return {"messages": messages}
+
+@router.post("/verify-image")
+async def verify_image_api(file: UploadFile = File(...), user_id: str = Form("1"), session_id: str = Form("")):
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        tmp_path = tmp.name
+    try:
+        result = verify_image(tmp_path)
+        print(f"[verify-image] session_id='{session_id}' user_id='{user_id}' file='{file.filename}'")
+        if session_id:
+            messages_collection.insert_one({
+                "user_id": user_id,
+                "session_id": session_id,
+                "message": file.filename,
+                "sender": "client",
+                "type": "image_file",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+            messages_collection.insert_one({
+                "user_id": user_id,
+                "session_id": session_id,
+                "message": result.get("message", ""),
+                "type": result.get("type", "image_verification"),
+                "structured_data": result.get("data", {}),
+                "sender": "bot",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+        return result
+    except Exception as e:
+        print(f"[verify-image ERROR] {e}")
+        return {
+            "type": "image_verification",
+            "message": "Image processing failed. Please try again.",
+            "data": {"is_medical": None}
+        }
+    finally:
+        os.remove(tmp_path)
 
 @router.delete("/chat/session/{session_id}")
 def delete_session(session_id: str):

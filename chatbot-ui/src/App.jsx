@@ -5,12 +5,14 @@ import { HeartPulse, Building2, Activity, Stethoscope, Send, Plus, MessageSquare
 const API = "";
 
 function HospitalCard({ hospital }) {
+  const typeLabel = hospital.type === "clinic" ? "Clinic" : "Hospital";
   return (
     <div className="hospital-card">
       <div className="hospital-name" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
         <Building2 size={16} /> {hospital.name}
       </div>
       <div className="hospital-meta-row">
+        <span className="hospital-type-badge">{typeLabel}</span>
         {hospital.vicinity && (
           <span className="hospital-meta"><MapPin size={12} /> {hospital.vicinity}</span>
         )}
@@ -27,14 +29,45 @@ function HospitalCard({ hospital }) {
   );
 }
 
-function BotMessage({ msg, onImageClick }) {
+function FormattedMessage({ text }) {
+  if (!text) return null;
+  return (
+    <div style={{ fontSize: "14px", lineHeight: "1.7", color: "#3e3831" }}>
+      {text.split("\n").map((line, i) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={i} style={{ height: "6px" }} />;
+        if (trimmed.startsWith("→")) return (
+          <div key={i} style={{ display: "flex", gap: "8px", marginBottom: "2px", paddingLeft: "16px", color: "#554e44", fontSize: "13px" }}>
+            <span style={{ color: "#a8a092", flexShrink: 0 }}>→</span>
+            <span>{trimmed.slice(1).trim()}</span>
+          </div>
+        );
+        if (trimmed.startsWith("•")) return (
+          <div key={i} style={{ display: "flex", gap: "8px", marginTop: "8px", marginBottom: "2px", fontWeight: 600 }}>
+            <span style={{ color: "#3e8166", flexShrink: 0 }}>•</span>
+            <span>{trimmed.slice(1).trim()}</span>
+          </div>
+        );
+        if (trimmed.startsWith("⚠")) return (
+          <div key={i} style={{ marginTop: "10px", fontSize: "12px", color: "#928b7e", fontStyle: "italic" }}>{trimmed}</div>
+        );
+        if (trimmed.startsWith("💊") || trimmed.startsWith("🧾") || trimmed.startsWith("💡") || trimmed.startsWith("🩺")) return (
+          <div key={i} style={{ fontWeight: 700, marginTop: "10px", marginBottom: "4px", color: "#3e3831" }}>{trimmed}</div>
+        );
+        return <div key={i}>{trimmed}</div>;
+      })}
+    </div>
+  );
+}
+
+function BotMessage({ msg, onImageClick, onChipClick }) {
   if (msg.type === "hospital_list") {
     return (
       <div className="bot-msg structured">
         <div className="structured-label" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
           <Building2 size={14} /> Nearby Hospitals
         </div>
-        <p>{msg.message}</p>
+        <FormattedMessage text={msg.message} />
         <div className="card-grid">
           {msg.data?.hospitals?.map((h, i) => <HospitalCard key={i} hospital={h} />)}
         </div>
@@ -45,11 +78,12 @@ function BotMessage({ msg, onImageClick }) {
   if (msg.type === "doctor_suggestion") {
     return (
       <div className="bot-msg structured">
-        <div className="structured-label" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <Stethoscope size={14} /> Doctor Suggestion
-        </div>
-        <p>{msg.message}</p>
+        <div style={{ margin: "0 0 10px", fontSize: "15px" }}>Based on your symptoms, you may consult a <strong>{msg.data?.doctor_type}</strong>.</div>
         <div className="doctor-badge">{msg.data?.doctor_type}</div>
+        <div className="follow-up-chips">
+          <button className="chip chip-primary" onClick={() => onChipClick("Find nearby hospital")}><Building2 size={13} /> Nearby Hospitals</button>
+          <button className="chip" onClick={() => onChipClick("symptoms")}><Activity size={13} /> Check Another Symptom</button>
+        </div>
       </div>
     );
   }
@@ -69,18 +103,22 @@ function BotMessage({ msg, onImageClick }) {
         <div className="structured-label" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
           <Pill size={14} /> Health Advice
         </div>
-        <p>{msg.message}</p>
+        <FormattedMessage text={msg.message} />
+        <div className="follow-up-chips">
+          <button className="chip chip-primary" onClick={() => onChipClick("Find nearby hospital")}><Building2 size={13} /> Nearby Hospitals</button>
+          <button className="chip" onClick={() => onChipClick("symptoms")}><Activity size={13} /> Check Another Symptom</button>
+        </div>
       </div>
     );
   }
 
-  if (msg.type === "image_verification") {
+  if (msg.type === "image_verification" || msg.type === "image_analysis") {
     const results = msg.data?.results;
     if (results) {
       return (
         <div className="bot-msg structured">
           <div className="structured-label" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <ImagePlus size={14} /> Image Verification
+            <ImagePlus size={14} /> {msg.type === "image_analysis" ? "Image Analysis" : "Image Verification"}
           </div>
           {results.map((r, i) => {
             const ok = r.data?.is_medical;
@@ -90,8 +128,8 @@ function BotMessage({ msg, onImageClick }) {
                 <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: "#554e44", marginBottom: "4px", cursor: r.previewUrl ? "pointer" : "default" }} onClick={() => r.previewUrl && onImageClick(r.previewUrl)}>
                   <Paperclip size={12} /> {r.filename}
                 </div>
-                <p style={{ margin: "0 0 6px", fontSize: "13px", color: "#554e44" }}>{r.message}</p>
-                {!isQuotaError && (
+                <FormattedMessage text={r.message} />
+                {!isQuotaError && msg.type !== "image_analysis" && (
                   <span className="doctor-badge" style={{ background: ok ? "#3e8166" : "#c0392b", display: "inline-flex", alignItems: "center", gap: "6px" }}>
                     {ok ? <><CheckCircle size={14} /> Medical Image</> : <><XCircle size={14} /> Not Medical</>}
                   </span>
@@ -105,13 +143,14 @@ function BotMessage({ msg, onImageClick }) {
     // fallback for history loaded single results
     const ok = msg.data?.is_medical;
     const isQuotaError = msg.data?.is_medical === null;
+    const isAnalysis = msg.type === "image_analysis";
     return (
       <div className="bot-msg structured">
         <div className="structured-label" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <ImagePlus size={14} /> Image Verification
+          <ImagePlus size={14} /> {isAnalysis ? "Image Analysis" : "Image Verification"}
         </div>
-        <p>{msg.message}</p>
-        {!isQuotaError && (
+        <FormattedMessage text={msg.message} />
+        {!isQuotaError && !isAnalysis && (
           <span className="doctor-badge" style={{ background: ok ? "#3e8166" : "#c0392b", display: "inline-flex", alignItems: "center", gap: "6px" }}>
             {ok ? <><CheckCircle size={14} /> Medical Image</> : <><XCircle size={14} /> Not Medical</>}
           </span>
@@ -126,7 +165,7 @@ function BotMessage({ msg, onImageClick }) {
     : typeof msg.text === "string"
     ? msg.text
     : JSON.stringify(msg.message ?? msg);
-  return <div className="bot-msg">{text}</div>;
+  return <div className="bot-msg"><FormattedMessage text={text} /></div>;
 }
 
 export default function App() {
@@ -142,6 +181,9 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [listening, setListening] = useState(false);
   const [pendingImages, setPendingImages] = useState([]);
+  const [mode, setMode] = useState(null); // 'symptoms' | 'specialist'
+  const [lastSymptom, setLastSymptom] = useState(null);
+  const [hospitalShown, setHospitalShown] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
   const chatEndRef = useRef(null);
   const micBtnRef = useRef(null);
@@ -244,10 +286,11 @@ export default function App() {
           if (m.sender === "client") {
             mapped.push({ sender: "user", type: m.type || "text", message: m.message });
             i++;
-          } else if (m.sender === "bot" && m.type === "image_verification") {
-            // group consecutive image_verification bot messages into one card
+          } else if (m.sender === "bot" && (m.type === "image_verification" || m.type === "image_analysis")) {
+            // group consecutive image bot messages into one card
+            const groupType = m.type;
             const group = [];
-            while (i < msgs.length && msgs[i].sender === "bot" && msgs[i].type === "image_verification") {
+            while (i < msgs.length && msgs[i].sender === "bot" && msgs[i].type === groupType) {
               group.push({
                 message: msgs[i].message,
                 data: msgs[i].structured_data || {},
@@ -256,7 +299,7 @@ export default function App() {
             }
             mapped.push({
               sender: "bot",
-              type: "image_verification",
+              type: groupType,
               message: "",
               data: { results: group },
             });
@@ -295,11 +338,46 @@ export default function App() {
     }
   };
 
+  const GREETINGS = ["hi", "hello", "hey", "yo", "sup", "howdy"];
+  const INVALID_SYMPTOM_WORDS = ["hi", "hello", "hey", "yo", "sup", "im", "i am", "my name", "name is", "test", "ok", "okay", "thanks", "thank you"];
+
+  const isValidSymptom = (text) => {
+    const lower = text.toLowerCase().trim();
+    return !INVALID_SYMPTOM_WORDS.some(w => lower === w || (lower.startsWith(w + " ") && lower.split(" ").length < 3));
+  };
+
+  const formatMessage = (raw) => {
+    if (mode === "symptoms") return `I have these symptoms: ${raw}`;
+    if (mode === "specialist") return lastSymptom ? `Suggest a specialist doctor for: ${lastSymptom}` : `Suggest a specialist doctor for: ${raw}`;
+    return raw;
+  };
+
   const sendMessage = async (text) => {
-    const msg = text || input;
+    const raw = (text ?? input).trim();
     const hasImages = pendingImages.length > 0;
+    if (!raw && !hasImages) return;
+
+    // Local greeting — skip API
+    if (!text && !mode && GREETINGS.includes(raw.toLowerCase())) {
+      setInput("");
+      setMessages(prev => [...prev,
+        { sender: "user", type: "text", message: raw },
+        { sender: "bot", type: "text", message: "Hi! I can help with symptoms, finding a specialist, or locating nearby hospitals. What do you need?" }
+      ]);
+      return;
+    }
+
+    // Validate symptom input
+    if (mode === "symptoms" && !text && !isValidSymptom(raw)) {
+      setMessages(prev => [...prev, { sender: "bot", type: "text", message: "That doesn't look like a symptom. Please describe what you're feeling — e.g. fever, headache, chest pain." }]);
+      return;
+    }
+
+    const msg = text ? raw : formatMessage(raw);
     if (!msg.trim() && !hasImages) return;
 
+    if (mode === "symptoms" && !text) { setLastSymptom(raw); setHospitalShown(false); }
+    setMode(null);
     setInput("");
     const imagesToSend = [...pendingImages];
     setPendingImages([]);
@@ -340,7 +418,23 @@ export default function App() {
           lat: location?.lat ?? null,
           lng: location?.lng ?? null,
         });
-        setMessages(prev => [...prev, { sender: "bot", ...res.data }]);
+        const botReply = res.data;
+        setMessages(prev => [...prev, { sender: "bot", ...botReply }]);
+        // Auto-fetch hospitals once per symptom flow
+        if (botReply.type === "doctor_suggestion" && location && !hospitalShown) {
+          setHospitalShown(true);
+          const hospRes = await axios.post(`${API}/chat`, {
+            user_id: "1",
+            session_id: sessionId,
+            message: "Find nearby hospital",
+            lat: location.lat,
+            lng: location.lng,
+          });
+          setMessages(prev => [...prev,
+            { sender: "bot", ...hospRes.data },
+            { sender: "bot", type: "text", message: "Need anything else? You can check another symptom or ask me anything." }
+          ]);
+        }
         loadSessions();
       }
     } catch {
@@ -409,7 +503,16 @@ export default function App() {
               ? msg.type === "image_file"
                 ? <div key={i} className="user-msg" style={{ display: "flex", alignItems: "center", gap: "6px", cursor: msg.previewUrl ? "pointer" : "default" }} onClick={() => msg.previewUrl && setPreviewUrl(msg.previewUrl)}><Paperclip size={14} />{msg.message}</div>
                 : <div key={i} className="user-msg">{msg.message}</div>
-              : <BotMessage key={i} msg={msg} onImageClick={setPreviewUrl} />
+              : <BotMessage key={i} msg={msg} onImageClick={setPreviewUrl} onChipClick={(action) => {
+                  if (action === "symptoms") {
+                    setMode("symptoms");
+                  } else if (action === "specialist") {
+                    if (lastSymptom) { sendMessage(`Suggest a specialist doctor for: ${lastSymptom}`); }
+                    else { setMode("specialist"); }
+                  } else {
+                    sendMessage(action);
+                  }
+                }} />
           )}
           {loading && <div className="bot-msg typing">Thinking...</div>}
           <div ref={chatEndRef} />
@@ -417,19 +520,22 @@ export default function App() {
 
         <div className="quick-actions">
           <button onClick={() => {
-            if (!location) {
-              requestLocation();
-              return;
-            }
+            if (!location) { requestLocation(); return; }
             sendMessage("Find nearby hospital");
           }} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <Building2 size={16} /> Hospital
           </button>
-          <button onClick={() => sendMessage("I have fever")} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <Activity size={16} /> Symptoms
+          <button onClick={() => setMode("symptoms")} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <Activity size={16} /> Check Symptoms
           </button>
-          <button onClick={() => sendMessage("Suggest doctor for headache")} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <Stethoscope size={16} /> Doctor
+          <button onClick={() => {
+            if (lastSymptom) { sendMessage(`Suggest a specialist doctor for: ${lastSymptom}`); }
+            else { setMode("specialist"); }
+          }} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <Stethoscope size={16} /> Find Specialist
+          </button>
+          <button onClick={() => setMode(null)} style={{ display: mode ? "flex" : "none", alignItems: "center", gap: "6px", background: "#fff0f0", color: "#c0392b", borderColor: "#e57373" }}>
+            <X size={14} /> Cancel
           </button>
         </div>
 
@@ -453,9 +559,15 @@ export default function App() {
               <input
                 value={listening ? "" : transcribing ? "" : input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={listening ? "Listening..." : transcribing ? "Transcribing..." : "Ask about health..."}
+                placeholder={
+                  listening ? "Listening..."
+                  : transcribing ? "Transcribing..."
+                  : mode === "symptoms" ? "Describe your symptoms (e.g. fever, headache)..."
+                  : mode === "specialist" ? "What condition do you need a specialist for?"
+                  : "Ask about health..."
+                }
                 disabled={listening || transcribing}
-                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }}
               />
             </div>
             <button

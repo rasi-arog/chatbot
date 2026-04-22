@@ -82,11 +82,16 @@ async def verify_image_api(file: UploadFile = File(...), user_id: str = Form("1"
                 "user_id": user_id,
                 "session_id": session_id,
                 "message": result.get("message", ""),
-                "type": result.get("type", "image_verification"),
+                "type": result.get("type", "image_analysis"),
                 "structured_data": result.get("data", {}),
                 "sender": "bot",
                 "created_at": datetime.now(timezone.utc).isoformat(),
             })
+            # Save image context into memory so agent can reference it in follow-up chat
+            image_type = result.get("data", {}).get("image_type", "image")
+            summary = f"User uploaded a {image_type}. Analysis: {result.get('message', '')[:300]}"
+            save_to_memory(session_id, {"sender": "client", "message": file.filename, "type": "image_file"})
+            save_to_memory(session_id, {"sender": "bot", "type": "image_analysis", "message": "", "image_summary": summary})
         return result
     except Exception as e:
         print(f"[verify-image ERROR] {e}")

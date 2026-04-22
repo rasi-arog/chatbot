@@ -4,28 +4,34 @@ from langsmith import traceable
 from services.llm import llm
 from services.tools import tools, set_location
 
-system_prompt = """You are a friendly healthcare assistant. Use tools ONLY when clearly needed.
+system_prompt = """You are a warm, empathetic healthcare assistant. You help users understand their health concerns, guide them to the right care, and support them — like a knowledgeable friend, not a cold robot.
 
-Tool usage rules (be strict):
-- User explicitly mentions symptoms or asks for health advice → use health_advice tool
-- User explicitly asks which doctor or specialist to see → use doctor_suggestion tool
-- User explicitly asks for nearby hospital or clinic → use hospital_finder tool
-- Emergency (chest pain, can't breathe, unconscious, heart attack, stroke) → respond immediately with type "alert"
+CONVERSATION STYLE:
+- Be warm, natural, and human — never robotic or mechanical
+- Ask follow-up questions to understand the user better
+- If user says "I feel sick" or is vague → ask what symptoms they have, how long, etc.
+- Remember context from earlier in the conversation and refer back to it
+- If user uploaded an image earlier in this session, you know about it — reference it naturally
+- Never just say "I cannot diagnose" and stop — always guide them to the next step
 
-Do NOT use any tool for:
-- Greetings (hello, hi, how are you)
-- Personal info (name, age, location)
-- General conversation
-- Vague questions not related to health
+TOOL USAGE (use only when clearly needed):
+- Symptoms or health advice requested → health_advice tool
+- User asks which doctor/specialist → doctor_suggestion tool
+- User asks for nearby hospital/clinic → hospital_finder tool
+- Emergency (chest pain, can't breathe, unconscious, heart attack, stroke) → type "alert" immediately
 
-For non-tool responses, reply in this EXACT JSON format:
+DO NOT use tools for:
+- Greetings, small talk, personal info
+- Vague non-health questions
+
+RESPONSE FORMAT for non-tool replies — EXACT JSON:
 {
   "type": "text",
-  "message": "<your response here>",
+  "message": "<your response>",
   "data": {}
 }
 
-Always add a disclaimer that you do not provide medical diagnosis."""
+SAFETY: Never provide a diagnosis. Always recommend consulting a doctor for serious concerns. Add a brief disclaimer only when giving health advice."""
 
 _llm_with_tools = llm.bind_tools(tools)
 
@@ -50,20 +56,27 @@ class AgentWrapper:
             return {
                 "output": {
                     "type": "alert",
-                    "message": "This sounds like a medical emergency! Call 911 or your local emergency number immediately.",
+                    "message": "⚠️ This sounds like a medical emergency! Please call 911 or your local emergency number immediately. Do not wait.",
                     "data": {},
                 }
             }
 
         messages = [SystemMessage(content=system_prompt)]
 
+        # Build conversation history — include image analysis context
         if session_id:
             history = get_memory(session_id)
             for msg in history:
-                if msg["sender"] == "client" and msg["message"] != inputs.get("input"):
-                    messages.append(HumanMessage(content=msg["message"]))
+                if msg["sender"] == "client":
+                    if msg["message"] and msg["message"] != inputs.get("input"):
+                        content = msg["message"]
+                        if msg.get("type") == "image_file":
+                            content = f"[User uploaded an image: {content}]"
+                        messages.append(HumanMessage(content=content))
                 elif msg["sender"] == "bot":
-                    content = msg["message"]
+                    content = msg.get("message", "")
+                    if msg.get("type") == "image_analysis" and msg.get("image_summary"):
+                        content = f"[Image analysis result: {msg['image_summary']}]"
                     if not content or not isinstance(content, str):
                         continue
                     messages.append(AIMessage(content=content))
@@ -71,12 +84,18 @@ class AgentWrapper:
         messages.append(HumanMessage(content=inputs["input"]))
 
         # Only allow tools if message contains health-related keywords
-        health_keywords = ["symptom", "fever", "pain", "cough", "cold", "headache", "doctor", "hospital", "clinic", "medicine", "sick", "ill", "disease", "infection", "allergy", "diabetes", "cancer", "anxiety", "depression", "stomach", "chest", "breathing", "rash", "injury", "blood", "heart", "lung", "kidney", "throat", "ear", "eye", "back", "joint", "bone", "pregnancy", "mental", "health", "nearby", "near me", "find"]
+        health_keywords = [
+            "symptom", "fever", "pain", "cough", "cold", "headache", "doctor", "hospital",
+            "clinic", "medicine", "sick", "ill", "disease", "infection", "allergy", "diabetes",
+            "cancer", "anxiety", "depression", "stomach", "chest", "breathing", "rash", "injury",
+            "blood", "heart", "lung", "kidney", "throat", "ear", "eye", "back", "joint", "bone",
+            "pregnancy", "mental", "health", "nearby", "near me", "find", "tired", "fatigue",
+            "nausea", "vomit", "dizziness", "swelling", "wound", "scar", "prescribed", "prescription"
+        ]
         force_no_tools = not any(kw in inputs["input"].lower() for kw in health_keywords)
 
         response = (_llm_with_tools if not force_no_tools else llm).invoke(messages)
 
-        # Log token usage
         usage = response.response_metadata.get("usage", {}) or response.response_metadata.get("token_usage", {})
         print(f"[TOKEN USAGE] Input: {usage.get('prompt_tokens', 0)}, Output: {usage.get('completion_tokens', 0)}, Total: {usage.get('total_tokens', 0)}")
 
@@ -91,7 +110,6 @@ class AgentWrapper:
                 print(f"[AGENT] Tool: {call['name']} | Input: {tool_input}")
                 return {"output": result}
 
-        # LLM returned plain text — normalize and wrap
         content = response.content
         if isinstance(content, list):
             content = " ".join(
@@ -99,9 +117,7 @@ class AgentWrapper:
                 for block in content
             ).strip()
 
-        # Try to parse if LLM returned JSON string
         try:
-            # Handle cases where LLM appends JSON after plain text
             json_start = content.find('{')
             if json_start != -1:
                 parsed = json.loads(content[json_start:])

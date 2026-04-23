@@ -132,15 +132,19 @@ def verify_image(image_path: str) -> dict:
         llm = _get_llm()
         img = _image_content(compressed_path)
 
-        image_type = _invoke(llm, CLASSIFY_PROMPT, img).strip().lower()
+        raw_type = _invoke(llm, CLASSIFY_PROMPT, img).strip().lower()
 
-        if image_type == "prescription":
+        if "prescription" in raw_type:
+            image_type = "prescription"
             prompt = PRESCRIPTION_PROMPT
-        elif image_type == "medicine":
+        elif "medicine" in raw_type:
+            image_type = "medicine"
             prompt = MEDICINE_PROMPT
-        elif image_type in ("lab_report", "lab"):
+        elif "lab_report" in raw_type or "lab" in raw_type:
+            image_type = "lab_report"
             prompt = LAB_REPORT_PROMPT
-        elif image_type == "condition":
+        elif "condition" in raw_type:
+            image_type = "condition"
             prompt = CONDITION_PROMPT
         else:
             return {

@@ -12,7 +12,9 @@ CONVERSATION STYLE:
 - If user says "I feel sick" or is vague → ask what symptoms they have, how long, etc.
 - Remember context from earlier in the conversation and refer back to it
 - If user uploaded an image earlier in this session, you know about it — reference it naturally
-- Never just say "I cannot diagnose" and stop — always guide them to the next step
+- NEVER say "I cannot diagnose" and stop — always follow up with care and guidance
+- NEVER be dismissive — always acknowledge how the user feels first
+- If user asks what disease they have → say something like "I'm not able to diagnose, but let me help you understand your symptoms better. Can you tell me more?"
 
 TOOL USAGE (use only when clearly needed):
 - Symptoms or health advice requested → health_advice tool
@@ -122,6 +124,15 @@ class AgentWrapper:
             if json_start != -1:
                 parsed = json.loads(content[json_start:])
                 if "type" in parsed and "message" in parsed:
+                    # Unwrap if message is itself a JSON string
+                    msg = parsed["message"]
+                    if isinstance(msg, str):
+                        try:
+                            inner = json.loads(msg)
+                            if "message" in inner:
+                                parsed["message"] = inner["message"]
+                        except (json.JSONDecodeError, TypeError):
+                            pass
                     return {"output": parsed}
         except (json.JSONDecodeError, TypeError):
             pass

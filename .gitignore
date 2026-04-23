@@ -2,7 +2,36 @@ __pycache__/
 *.pyc
 *.pyo
 .env
+*.env.*
 *.egg-info/
 .venv/
 venv/
+env/
+
+# Credentials & secrets
 service_account.json
+*.json.key
+*.pem
+*.key
+
+# Temp / uploaded files
+tmp/
+*.webm
+*.wav
+*.jpg
+*.jpeg
+*.png
+*.gif
+
+# Test cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

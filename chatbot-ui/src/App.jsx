@@ -29,11 +29,73 @@ function HospitalCard({ hospital }) {
   );
 }
 
+function parseMedicines(text) {
+  const medicines = [];
+  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+  let current = null;
+  for (const line of lines) {
+    if (line.startsWith("•") && !line.startsWith("→")) {
+      if (current) medicines.push(current);
+      current = { name: line.slice(1).trim(), usedFor: "", guidance: "" };
+    } else if (current && line.startsWith("→ Used for:")) {
+      current.usedFor = line.replace("→ Used for:", "").trim();
+    } else if (current && line.startsWith("→ General use:")) {
+      current.guidance = line.replace("→ General use:", "").trim();
+    } else if (current && line.startsWith("→")) {
+      // fallback for any other → line
+      if (!current.usedFor) current.usedFor = line.slice(1).trim();
+      else current.guidance = line.slice(1).trim();
+    }
+  }
+  if (current) medicines.push(current);
+  return medicines;
+}
+
+function PrescriptionTable({ text }) {
+  const medicines = parseMedicines(text);
+  if (!medicines.length) return <FormattedMessage text={text} />;
+  const header = text.split("\n").find(l => l.trim().startsWith("🧾"));
+  const disclaimer = text.split("\n").find(l => l.trim().startsWith("⚠"));
+  return (
+    <div>
+      {header && <div style={{ fontWeight: 700, marginBottom: "10px", color: "#3e3831" }}>{header.trim()}</div>}
+      <table className="medicine-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Medicine</th>
+            <th>Used For</th>
+            <th>General Use</th>
+          </tr>
+        </thead>
+        <tbody>
+          {medicines.map((m, i) => (
+            <tr key={i}>
+              <td>{i + 1}</td>
+              <td style={{ fontWeight: 600 }}>{m.name}</td>
+              <td>{m.usedFor}</td>
+              <td>{m.guidance}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {disclaimer && <div style={{ marginTop: "10px", fontSize: "12px", color: "#928b7e", fontStyle: "italic" }}>{disclaimer.trim()}</div>}
+    </div>
+  );
+}
+
 function FormattedMessage({ text }) {
   if (!text) return null;
+  let display = text;
+  if (typeof text === "string" && text.trimStart().startsWith("{")) {
+    try {
+      const parsed = JSON.parse(text.trim());
+      if (parsed.message) display = parsed.message;
+    } catch {}
+  }
   return (
     <div style={{ fontSize: "14px", lineHeight: "1.7", color: "#3e3831" }}>
-      {text.split("\n").map((line, i) => {
+      {display.split("\n").map((line, i) => {
         const trimmed = line.trim();
         if (!trimmed) return <div key={i} style={{ height: "6px" }} />;
         if (trimmed.startsWith("→")) return (
@@ -128,7 +190,7 @@ function BotMessage({ msg, onImageClick, onChipClick }) {
                 <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: "#554e44", marginBottom: "4px", cursor: r.previewUrl ? "pointer" : "default" }} onClick={() => r.previewUrl && onImageClick(r.previewUrl)}>
                   <Paperclip size={12} /> {r.filename}
                 </div>
-                <FormattedMessage text={r.message} />
+                {r.data?.image_type === "prescription" ? <PrescriptionTable text={r.message} /> : <FormattedMessage text={r.message} />}
                 {!isQuotaError && msg.type !== "image_analysis" && (
                   <span className="doctor-badge" style={{ background: ok ? "#3e8166" : "#c0392b", display: "inline-flex", alignItems: "center", gap: "6px" }}>
                     {ok ? <><CheckCircle size={14} /> Medical Image</> : <><XCircle size={14} /> Not Medical</>}
@@ -149,7 +211,7 @@ function BotMessage({ msg, onImageClick, onChipClick }) {
         <div className="structured-label" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
           <ImagePlus size={14} /> {isAnalysis ? "Image Analysis" : "Image Verification"}
         </div>
-        <FormattedMessage text={msg.message} />
+        {msg.data?.image_type === "prescription" ? <PrescriptionTable text={msg.message} /> : <FormattedMessage text={msg.message} />}
         {!isQuotaError && !isAnalysis && (
           <span className="doctor-badge" style={{ background: ok ? "#3e8166" : "#c0392b", display: "inline-flex", alignItems: "center", gap: "6px" }}>
             {ok ? <><CheckCircle size={14} /> Medical Image</> : <><XCircle size={14} /> Not Medical</>}
@@ -160,11 +222,18 @@ function BotMessage({ msg, onImageClick, onChipClick }) {
   }
 
   // plain text fallback — handle any unexpected shape
-  const text = typeof msg.message === "string"
+  let text = typeof msg.message === "string"
     ? msg.message
     : typeof msg.text === "string"
     ? msg.text
     : JSON.stringify(msg.message ?? msg);
+  // Unwrap if LLM returned raw JSON as message
+  if (text.trimStart().startsWith("{")) {
+    try {
+      const parsed = JSON.parse(text.trim());
+      if (parsed.message) text = parsed.message;
+    } catch {}
+  }
   return <div className="bot-msg"><FormattedMessage text={text} /></div>;
 }
 

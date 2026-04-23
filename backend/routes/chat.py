@@ -39,7 +39,7 @@ def chat(req: ChatRequest):
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     messages_collection.insert_one(bot_msg)
-    save_to_memory(req.session_id, {"sender": "bot", "message": structured.get("message", "") if structured.get("type") == "text" else ""})
+    save_to_memory(req.session_id, {"sender": "bot", "message": structured.get("message", "") if structured.get("type") in ("text", "health_advice", "doctor_suggestion") else ""})
 
     return structured
 

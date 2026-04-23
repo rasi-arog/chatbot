@@ -49,16 +49,16 @@ PRESCRIPTION_PROMPT = (
     "• [Medicine name]\n"
     "→ Used for: [one-line general use]\n"
     "→ General use: [simple safe intake tip, e.g. 'Typically taken after food']\n"
-    "(max 2 bullets per medicine, repeat for each)\n\n"
+    "(repeat for each medicine, max 5)\n\n"
     "⚠ This is not a diagnosis. Follow your doctor's instructions.\n\n"
     "Rules:\n"
-    "- Only include actual medicines — ignore instructions, alcohol, flavoring, or non-medicine words\n"
-    "- If unsure whether something is a medicine, skip it\n"
+    "- ONLY include actual medicine names (e.g. Paracetamol, Amoxicillin, Omeprazole)\n"
+    "- SKIP: dosage numbers, frequency (bd/od/sos), alcohol, flavoring, instructions, brand slogans\n"
+    "- SKIP anything you are not 100% sure is a medicine\n"
     "- No exact dosage or frequency\n"
     "- No paragraphs\n"
     "- No invented medicines\n"
-    "- Keep each line under 10 words\n"
-    "- Sound natural and helpful, not robotic"
+    "- Keep each line under 10 words"
 )
 
 MEDICINE_PROMPT = (
@@ -112,8 +112,12 @@ CONDITION_PROMPT = (
 )
 
 NON_MEDICAL_MSG = (
-    "This image does not appear to be related to healthcare.\n"
-    "Please upload a prescription, medicine photo, lab report, or an image of a visible condition."
+    "❌ Not a medical image\n\n"
+    "Please upload one of the following:\n"
+    "• Prescription\n"
+    "• Medicine photo\n"
+    "• Lab report\n"
+    "• Skin / visible condition"
 )
 
 def verify_image(image_path: str) -> dict:
@@ -130,13 +134,13 @@ def verify_image(image_path: str) -> dict:
 
         image_type = _invoke(llm, CLASSIFY_PROMPT, img).strip().lower()
 
-        if "prescription" in image_type:
+        if image_type == "prescription":
             prompt = PRESCRIPTION_PROMPT
-        elif "medicine" in image_type:
+        elif image_type == "medicine":
             prompt = MEDICINE_PROMPT
-        elif "lab_report" in image_type or "lab" in image_type:
+        elif image_type in ("lab_report", "lab"):
             prompt = LAB_REPORT_PROMPT
-        elif "condition" in image_type:
+        elif image_type == "condition":
             prompt = CONDITION_PROMPT
         else:
             return {

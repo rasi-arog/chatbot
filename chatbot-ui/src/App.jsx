@@ -59,10 +59,11 @@ function PrescriptionTable({ text }) {
   return (
     <div>
       {header && <div style={{ fontWeight: 700, marginBottom: "10px", color: "#3e3831" }}>{header.trim()}</div>}
-      <table className="medicine-table">
-        <thead>
-          <tr>
-            <th>#</th>
+      <div className="table-responsive">
+        <table className="medicine-table">
+          <thead>
+            <tr>
+              <th>#</th>
             <th>Medicine</th>
             <th>Used For</th>
             <th>General Use</th>
@@ -78,7 +79,8 @@ function PrescriptionTable({ text }) {
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+      </div>
       {disclaimer && <div style={{ marginTop: "10px", fontSize: "12px", color: "#928b7e", fontStyle: "italic" }}>{disclaimer.trim()}</div>}
     </div>
   );
@@ -561,7 +563,7 @@ export default function App() {
           Health Assistant
           {location && (
             <span className="location-badge">
-              <MapPin size={12} /> Location active
+              <MapPin size={12} /> <span className="location-text">Location active</span>
             </span>
           )}
         </header>
@@ -641,15 +643,15 @@ export default function App() {
             </div>
             <button
               ref={micBtnRef}
+              className={`mic-btn${listening ? " mic-active" : ""}`}
               onClick={() => listening ? stopListening() : startListening()}
               title={listening ? "Click to stop" : "Click to speak"}
               disabled={transcribing}
-              style={{ marginLeft: "8px", padding: "0 16px", border: "none", background: listening ? "#c0392b" : "#f0eadd", color: listening ? "white" : "#3e8166", borderRadius: "28px", cursor: transcribing ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s", userSelect: "none" }}
             >
               {listening ? <MicOff size={18} /> : <Mic size={18} />}
             </button>
             <button onClick={() => sendMessage()} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-              <Send size={18} /> Send
+              <Send size={18} /> <span className="send-text">Send</span>
             </button>
           </div>
         </div>

@@ -281,34 +281,54 @@ export default function App() {
   const startListening = useCallback(async () => {
     if (mediaRecorderRef.current) return;
     try {
+      console.log("[MIC] Requesting microphone...");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      console.log("[MIC] Got stream:", stream);
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm"
+        : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4"
+        : "";
+      console.log("[MIC] Using mimeType:", mimeType || "(browser default)");
+      const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      console.log("[MIC] MediaRecorder created, actual mimeType:", mediaRecorder.mimeType);
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
-      mediaRecorder.ondataavailable = (e) => chunksRef.current.push(e.data);
+      mediaRecorder.ondataavailable = (e) => {
+        console.log("[MIC] ondataavailable size:", e.data.size);
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
       mediaRecorder.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        console.log("[MIC] onstop fired, chunks:", chunksRef.current.length);
+        const blob = new Blob(chunksRef.current, { type: mediaRecorder.mimeType || "audio/webm" });
+        console.log("[MIC] Blob size:", blob.size, "type:", blob.type);
+        const ext = (mediaRecorder.mimeType || "").includes("mp4") ? "audio.mp4" : "audio.webm";
         const formData = new FormData();
-        formData.append("file", blob, "audio.webm");
+        formData.append("file", blob, ext);
         mediaRecorderRef.current = null;
+        stream.getTracks().forEach(t => t.stop());
         try {
+          console.log("[MIC] Sending to /transcribe...");
           const res = await fetch("/transcribe", { method: "POST", body: formData });
+          console.log("[MIC] /transcribe status:", res.status);
           const data = await res.json();
+          console.log("[MIC] Transcription result:", data);
           if (data.text) setInput(data.text);
-        } catch (err) { console.error("[Whisper] error:", err); }
+        } catch (err) { console.error("[MIC] fetch error:", err); }
         finally { setTranscribing(false); }
       };
-      mediaRecorder.start();
+      mediaRecorder.onerror = (e) => console.error("[MIC] MediaRecorder error:", e.error);
+      mediaRecorder.start(250);
+      console.log("[MIC] Recording started, state:", mediaRecorder.state);
       setListening(true);
-    } catch (err) { console.error("[MIC] error:", err); }
+    } catch (err) { console.error("[MIC] getUserMedia error:", err); }
   }, []);
 
   const stopListening = useCallback(() => {
-    mediaRecorderRef.current?.stop();
-    mediaRecorderRef.current?.stream?.getTracks().forEach(t => t.stop());
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.requestData();
+      mediaRecorderRef.current.stop();
+    }
     setListening(false);
     setTranscribing(true);
-    // don't auto-send — user clicks Send
   }, []);
 
   const requestLocation = () => {
@@ -628,7 +648,7 @@ export default function App() {
                 <Plus size={18} />
               </button>
               <input
-                value={listening ? "" : transcribing ? "" : input}
+                value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={
                   listening ? "Listening..."
@@ -650,7 +670,7 @@ export default function App() {
             >
               {listening ? <MicOff size={18} /> : <Mic size={18} />}
             </button>
-            <button onClick={() => sendMessage()} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+            <button className="send-btn" onClick={() => sendMessage()} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
               <Send size={18} /> <span className="send-text">Send</span>
             </button>
           </div>

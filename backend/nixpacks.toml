@@ -3,8 +3,8 @@ nixPkgs = ["ffmpeg", "python311"]
 
 [phases.install]
 cmds = [
-  "pip3 install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu",
-  "pip3 install --no-cache-dir --no-deps -r requirements.txt"
+  "/opt/venv/bin/pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu",
+  "/opt/venv/bin/pip install --no-cache-dir --no-deps -r requirements.txt"
 ]
 
 [start]

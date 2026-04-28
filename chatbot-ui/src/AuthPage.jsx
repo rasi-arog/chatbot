@@ -2,6 +2,8 @@ import { useState } from "react";
 import axios from "axios";
 import { HeartPulse } from "lucide-react";
 
+const API = import.meta.env.VITE_API_URL || "";
+
 export default function AuthPage({ onAuth }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
@@ -14,7 +16,7 @@ export default function AuthPage({ onAuth }) {
     setError("");
     setLoading(true);
     try {
-      const res = await axios.post(`/${mode}`, { email, password });
+      const res = await axios.post(`${API}/${mode}`, { email, password });
       if (mode === "login") {
         localStorage.setItem("token", res.data.token);
         localStorage.setItem("user_email", res.data.email);

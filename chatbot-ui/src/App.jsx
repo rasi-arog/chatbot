@@ -363,7 +363,7 @@ export default function App() {
         stream.getTracks().forEach(t => t.stop());
         try {
           console.log("[MIC] Sending to /transcribe...");
-          const res = await fetch("/transcribe", { method: "POST", body: formData });
+          const res = await fetch(`${API}/transcribe`, { method: "POST", body: formData });
           console.log("[MIC] /transcribe status:", res.status);
           const data = await res.json();
           console.log("[MIC] Transcription result:", data);
@@ -596,7 +596,7 @@ export default function App() {
           const formData = new FormData();
           formData.append("file", img.file);
           formData.append("session_id", sessionId);
-          const res = await fetch("/verify-image", { method: "POST", body: formData, headers: authHeaders() });
+          const res = await fetch(`${API}/verify-image`, { method: "POST", body: formData, headers: authHeaders() });
           return { ...await res.json(), filename: img.file.name, previewUrl: dataUrls[idx] };
         }));
         setMessages(prev => [...prev, { sender: "bot", type: "image_verification", message: "", data: { results } }]);

@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
-import { HeartPulse, Building2, Activity, Stethoscope, Send, Plus, MessageSquare, MapPin, Pill, X, Menu, Mic, MicOff, ImagePlus, Paperclip, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { HeartPulse, Building2, Activity, Stethoscope, Send, Plus, MessageSquare, MapPin, Pill, X, Menu, Mic, MicOff, ImagePlus, Paperclip, CheckCircle, XCircle, AlertTriangle, LogOut, Pencil } from "lucide-react";
+import AuthPage from "./AuthPage.jsx";
 
 const API = "";
+const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
 
 function HospitalCard({ hospital }) {
   const typeLabel = hospital.type === "clinic" ? "Clinic" : "Hospital";
@@ -22,6 +24,32 @@ function HospitalCard({ hospital }) {
       </div>
       {hospital.maps_link && (
         <a href={hospital.maps_link} target="_blank" rel="noreferrer" className="maps-link" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+          <MapPin size={14} /> Open in Maps
+        </a>
+      )}
+    </div>
+  );
+}
+
+function DoctorCard({ doctor }) {
+  const typeLabel = doctor.speciality || doctor.type || "Doctor";
+  return (
+    <div className="hospital-card">
+      <div className="hospital-name" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+        <Stethoscope size={16} /> {doctor.name}
+      </div>
+      <div className="hospital-meta-row">
+        <span className="hospital-type-badge">{typeLabel}</span>
+        {doctor.vicinity && (
+          <span className="hospital-meta"><MapPin size={12} /> {doctor.vicinity}</span>
+        )}
+        {doctor.distance_km && (
+          <span className="hospital-meta distance">{doctor.distance_km} km away</span>
+        )}
+      </div>
+      {doctor.phone && <div className="hospital-meta" style={{ marginTop: "6px" }}>Phone: {doctor.phone}</div>}
+      {doctor.maps_link && (
+        <a href={doctor.maps_link} target="_blank" rel="noreferrer" className="maps-link" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
           <MapPin size={14} /> Open in Maps
         </a>
       )}
@@ -140,10 +168,31 @@ function BotMessage({ msg, onImageClick, onChipClick }) {
   }
 
   if (msg.type === "doctor_suggestion") {
+    const doctorType = msg.data?.doctor_type || "doctor";
     return (
       <div className="bot-msg structured">
-        <div style={{ margin: "0 0 10px", fontSize: "15px" }}>Based on your symptoms, you may consult a <strong>{msg.data?.doctor_type}</strong>.</div>
-        <div className="doctor-badge">{msg.data?.doctor_type}</div>
+        <FormattedMessage text={msg.message} />
+        <div className="doctor-badge">{doctorType}</div>
+        <div className="follow-up-chips">
+          {msg.data?.can_search_nearby && (
+            <button className="chip chip-primary" onClick={() => onChipClick(`nearby_doctor:${doctorType}`)}><Stethoscope size={13} /> Nearby {doctorType}s</button>
+          )}
+          <button className="chip" onClick={() => onChipClick("symptoms")}><Activity size={13} /> Check Another Symptom</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (msg.type === "doctor_list") {
+    return (
+      <div className="bot-msg structured">
+        <div className="structured-label" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <Stethoscope size={14} /> Nearby Doctors
+        </div>
+        <FormattedMessage text={msg.message} />
+        <div className="card-grid">
+          {msg.data?.doctors?.map((d, i) => <DoctorCard key={i} doctor={d} />)}
+        </div>
         <div className="follow-up-chips">
           <button className="chip chip-primary" onClick={() => onChipClick("Find nearby hospital")}><Building2 size={13} /> Nearby Hospitals</button>
           <button className="chip" onClick={() => onChipClick("symptoms")}><Activity size={13} /> Check Another Symptom</button>
@@ -151,6 +200,7 @@ function BotMessage({ msg, onImageClick, onChipClick }) {
       </div>
     );
   }
+
 
   if (msg.type === "alert") {
     return (
@@ -162,6 +212,7 @@ function BotMessage({ msg, onImageClick, onChipClick }) {
   }
 
   if (msg.type === "health_advice") {
+    const doctorType = msg.data?.doctor_type;
     return (
       <div className="bot-msg structured">
         <div className="structured-label" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -169,6 +220,9 @@ function BotMessage({ msg, onImageClick, onChipClick }) {
         </div>
         <FormattedMessage text={msg.message} />
         <div className="follow-up-chips">
+          {doctorType && (
+            <button className="chip chip-primary" onClick={() => onChipClick(`nearby_doctor:${doctorType}`)}><Stethoscope size={13} /> See {doctorType}s</button>
+          )}
           <button className="chip chip-primary" onClick={() => onChipClick("Find nearby hospital")}><Building2 size={13} /> Nearby Hospitals</button>
           <button className="chip" onClick={() => onChipClick("symptoms")}><Activity size={13} /> Check Another Symptom</button>
         </div>
@@ -240,6 +294,8 @@ function BotMessage({ msg, onImageClick, onChipClick }) {
 }
 
 export default function App() {
+  const [userId, setUserId] = useState("");
+  const [userEmail, setUserEmail] = useState(() => localStorage.getItem("user_email") || "");
   const [messages, setMessages] = useState([
     { sender: "bot", type: "text", message: "Hello! How can I assist you with your healthcare today?" }
   ]);
@@ -253,9 +309,9 @@ export default function App() {
   const [listening, setListening] = useState(false);
   const [pendingImages, setPendingImages] = useState([]);
   const [mode, setMode] = useState(null); // 'symptoms' | 'specialist'
-  const [lastSymptom, setLastSymptom] = useState(null);
-  const [hospitalShown, setHospitalShown] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [editingSessionId, setEditingSessionId] = useState(null);
+  const [editingTitle, setEditingTitle] = useState("");
   const chatEndRef = useRef(null);
   const micBtnRef = useRef(null);
   const sendMessageRef = useRef(null);
@@ -344,19 +400,26 @@ export default function App() {
   };
 
   useEffect(() => {
+    const email = localStorage.getItem("user_email");
+    if (email) setUserId(email);
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
     requestLocation();
     loadSessions();
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const loadSessions = async (retries = 3) => {
+    if (!userId) return;
     for (let i = 0; i < retries; i++) {
       try {
-        const res = await axios.get(`${API}/chat/sessions/1`);
-        setSessions(res.data.sessions);
+        const res = await axios.get(`${API}/chat/sessions`, { headers: authHeaders() });
+        setSessions(normalizeSessions(res.data.sessions || []));
         return;
       } catch {
         if (i < retries - 1) await new Promise(r => setTimeout(r, 2000));
@@ -364,10 +427,61 @@ export default function App() {
     }
   };
 
+  const getSessionId = (session) => typeof session === "string" ? session : session.id;
+
+  const getSessionTitle = (session, index) => {
+    if (typeof session === "string") return `Chat ${sessions.length - index}`;
+    return session.title || `Chat ${sessions.length - index}`;
+  };
+
+  const normalizeSessions = (items) => {
+    return items.map((session, index) => {
+      if (typeof session !== "string") return session;
+      return { id: session, title: `Chat ${items.length - index}` };
+    });
+  };
+
+  const addSessionToSidebar = (id, title) => {
+    setSessions(prev => {
+      if (prev.some(session => getSessionId(session) === id)) return prev;
+      return [{ id, title: title || "New chat" }, ...prev];
+    });
+  };
+
+  const startRenameSession = (session, index, e) => {
+    e.stopPropagation();
+    setEditingSessionId(getSessionId(session));
+    setEditingTitle(getSessionTitle(session, index));
+  };
+
+  const cancelRenameSession = () => {
+    setEditingSessionId(null);
+    setEditingTitle("");
+  };
+
+  const renameSession = async (id) => {
+    const title = editingTitle.trim();
+    if (!title) return cancelRenameSession();
+
+    try {
+      const res = await axios.patch(
+        `${API}/chat/session/${id}/title`,
+        { title },
+        { headers: authHeaders() }
+      );
+      setSessions(prev => prev.map(session =>
+        getSessionId(session) === id ? { ...session, id, title: res.data.title } : session
+      ));
+      cancelRenameSession();
+    } catch {
+      alert("Failed to rename chat.");
+    }
+  };
+
   const loadHistory = async (id) => {
     setSessionId(id);
     try {
-      const res = await axios.get(`${API}/chat/history/${id}`);
+      const res = await axios.get(`${API}/chat/history/${id}`, { headers: authHeaders() });
       if (res.data.messages?.length > 0) {
         const mapped = [];
         let i = 0;
@@ -410,6 +524,7 @@ export default function App() {
   };
 
   const startNewChat = () => {
+    loadSessions();
     setSessionId(crypto.randomUUID());
     setMessages([{ sender: "bot", type: "text", message: "Hello! How can I assist you with your healthcare today?" }]);
   };
@@ -418,8 +533,8 @@ export default function App() {
     e.stopPropagation();
     if (window.confirm("Are you sure you want to delete this chat history?")) {
       try {
-        await axios.delete(`${API}/chat/session/${id}`);
-        setSessions(prev => prev.filter(s => s !== id));
+        await axios.delete(`${API}/chat/session/${id}`, { headers: authHeaders() });
+        setSessions(prev => prev.filter(session => getSessionId(session) !== id));
         if (sessionId === id) {
           startNewChat();
         }
@@ -429,7 +544,6 @@ export default function App() {
     }
   };
 
-  const GREETINGS = ["hi", "hello", "hey", "yo", "sup", "howdy"];
   const INVALID_SYMPTOM_WORDS = ["hi", "hello", "hey", "yo", "sup", "im", "i am", "my name", "name is", "test", "ok", "okay", "thanks", "thank you"];
 
   const isValidSymptom = (text) => {
@@ -439,7 +553,7 @@ export default function App() {
 
   const formatMessage = (raw) => {
     if (mode === "symptoms") return `I have these symptoms: ${raw}`;
-    if (mode === "specialist") return lastSymptom ? `Suggest a specialist doctor for: ${lastSymptom}` : `Suggest a specialist doctor for: ${raw}`;
+    if (mode === "specialist") return `Which doctor should I see for: ${raw}`;
     return raw;
   };
 
@@ -447,16 +561,6 @@ export default function App() {
     const raw = (text ?? input).trim();
     const hasImages = pendingImages.length > 0;
     if (!raw && !hasImages) return;
-
-    // Local greeting — skip API
-    if (!text && !mode && GREETINGS.includes(raw.toLowerCase())) {
-      setInput("");
-      setMessages(prev => [...prev,
-        { sender: "user", type: "text", message: raw },
-        { sender: "bot", type: "text", message: "Hi! I can help with symptoms, finding a specialist, or locating nearby hospitals. What do you need?" }
-      ]);
-      return;
-    }
 
     // Validate symptom input
     if (mode === "symptoms" && !text && !isValidSymptom(raw)) {
@@ -467,7 +571,6 @@ export default function App() {
     const msg = text ? raw : formatMessage(raw);
     if (!msg.trim() && !hasImages) return;
 
-    if (mode === "symptoms" && !text) { setLastSymptom(raw); setHospitalShown(false); }
     setMode(null);
     setInput("");
     const imagesToSend = [...pendingImages];
@@ -492,40 +595,24 @@ export default function App() {
         const results = await Promise.all(imagesToSend.map(async (img, idx) => {
           const formData = new FormData();
           formData.append("file", img.file);
-          formData.append("user_id", "1");
           formData.append("session_id", sessionId);
-          const res = await fetch("/verify-image", { method: "POST", body: formData });
+          const res = await fetch("/verify-image", { method: "POST", body: formData, headers: authHeaders() });
           return { ...await res.json(), filename: img.file.name, previewUrl: dataUrls[idx] };
         }));
         setMessages(prev => [...prev, { sender: "bot", type: "image_verification", message: "", data: { results } }]);
         await loadSessions();
-        setSessions(prev => prev.includes(sessionId) ? prev : [sessionId, ...prev]);
+        addSessionToSidebar(sessionId, imagesToSend[0]?.file?.name || "Image chat");
       }
       if (msg.trim()) {
         const res = await axios.post(`${API}/chat`, {
-          user_id: "1",
           session_id: sessionId,
           message: msg,
           lat: location?.lat ?? null,
           lng: location?.lng ?? null,
-        });
+        }, { headers: authHeaders() });
         const botReply = res.data;
         setMessages(prev => [...prev, { sender: "bot", ...botReply }]);
-        // Auto-fetch hospitals once per symptom flow
-        if (botReply.type === "doctor_suggestion" && location && !hospitalShown) {
-          setHospitalShown(true);
-          const hospRes = await axios.post(`${API}/chat`, {
-            user_id: "1",
-            session_id: sessionId,
-            message: "Find nearby hospital",
-            lat: location.lat,
-            lng: location.lng,
-          });
-          setMessages(prev => [...prev,
-            { sender: "bot", ...hospRes.data },
-            { sender: "bot", type: "text", message: "Need anything else? You can check another symptom or ask me anything." }
-          ]);
-        }
+        addSessionToSidebar(sessionId, msg);
         loadSessions();
       }
     } catch {
@@ -535,7 +622,45 @@ export default function App() {
     }
   };
 
+  const findNearbyDoctors = async (doctorType) => {
+    if (!location) {
+      setMessages(prev => [...prev, { sender: "bot", type: "text", message: "I need your location to find nearby doctors. Please enable location access and try again." }]);
+      return;
+    }
+    setLoading(true);
+    setMessages(prev => [...prev, { sender: "user", type: "text", message: `Find nearby ${doctorType}s` }]);
+    try {
+      const res = await axios.post(`${API}/chat`, {
+        session_id: sessionId,
+        message: `Find nearby ${doctorType} doctors near me`,
+        lat: location.lat,
+        lng: location.lng,
+      }, { headers: authHeaders() });
+      setMessages(prev => [...prev, { sender: "bot", ...res.data }]);
+    } catch {
+      setMessages(prev => [...prev, { sender: "bot", type: "text", message: "Something went wrong. Please try again." }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   sendMessageRef.current = sendMessage;
+
+  const handleAuth = (email) => {
+    setUserId(email);
+    setUserEmail(email);
+  };
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user_email");
+    setUserId("");
+    setUserEmail("");
+    setMessages([{ sender: "bot", type: "text", message: "Hello! How can I assist you with your healthcare today?" }]);
+    setSessions([]);
+  };
+
+  if (!userEmail) return <AuthPage onAuth={handleAuth} />;
 
   return (
     <div className="app-layout">
@@ -553,7 +678,9 @@ export default function App() {
           <Plus size={18} /> New Chat
         </button>
         <div className="sidebar-header">Recent Chats</div>
-        {sessions.map((id, index) => (
+        {sessions.map((session, index) => {
+          const id = getSessionId(session);
+          return (
           <div
             key={id}
             className={`session-item ${id === sessionId ? "active" : ""}`}
@@ -561,17 +688,66 @@ export default function App() {
           >
             <div className="session-item-content">
               <MessageSquare size={14} style={{ display: "inline", marginRight: "8px", flexShrink: 0 }} />
-              <span className="session-title">Chat {sessions.length - index}</span>
+              {editingSessionId === id ? (
+                <input
+                  className="session-title-input"
+                  value={editingTitle}
+                  autoFocus
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") renameSession(id);
+                    if (e.key === "Escape") cancelRenameSession();
+                  }}
+                />
+              ) : (
+                <span className="session-title">{getSessionTitle(session, index)}</span>
+              )}
             </div>
-            <button
-              onClick={(e) => deleteSession(id, e)}
-              className="delete-chat-btn"
-              title="Delete Chat"
-            >
-              <X size={14} />
-            </button>
+            {editingSessionId === id ? (
+              <div className="session-actions">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    renameSession(id);
+                  }}
+                  className="session-action-btn"
+                  title="Save Name"
+                >
+                  <CheckCircle size={14} />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    cancelRenameSession();
+                  }}
+                  className="session-action-btn delete-chat-btn"
+                  title="Cancel Rename"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <div className="session-actions">
+                <button
+                  onClick={(e) => startRenameSession(session, index, e)}
+                  className="session-action-btn"
+                  title="Rename Chat"
+                >
+                  <Pencil size={13} />
+                </button>
+                <button
+                  onClick={(e) => deleteSession(id, e)}
+                  className="session-action-btn delete-chat-btn"
+                  title="Delete Chat"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
           </div>
-        ))}
+          );
+        })}
       </aside>
 
       <div className="container">
@@ -586,6 +762,9 @@ export default function App() {
               <MapPin size={12} /> <span className="location-text">Location active</span>
             </span>
           )}
+          <button onClick={logout} title="Logout" style={{ marginLeft: "auto", background: "transparent", border: "none", cursor: "pointer", color: "#928b7e", display: "flex", alignItems: "center", gap: "4px", fontSize: "13px", fontWeight: 600, padding: "6px 10px", borderRadius: "12px" }}>
+            <LogOut size={15} /> <span style={{ display: "none" }} className="send-text">Logout</span>
+          </button>
         </header>
 
         <div className="chat-box">
@@ -598,8 +777,10 @@ export default function App() {
                   if (action === "symptoms") {
                     setMode("symptoms");
                   } else if (action === "specialist") {
-                    if (lastSymptom) { sendMessage(`Suggest a specialist doctor for: ${lastSymptom}`); }
-                    else { setMode("specialist"); }
+                    setMode("specialist");
+                  } else if (action.startsWith("nearby_doctor:")) {
+                    const doctorType = action.replace("nearby_doctor:", "");
+                    findNearbyDoctors(doctorType);
                   } else {
                     sendMessage(action);
                   }
@@ -616,17 +797,21 @@ export default function App() {
           }} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <Building2 size={16} /> Hospital
           </button>
-          <button onClick={() => setMode("symptoms")} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <button
+            className={mode === "symptoms" ? "quick-action-active" : ""}
+            onClick={() => setMode(mode === "symptoms" ? null : "symptoms")}
+            style={{ display: "flex", alignItems: "center", gap: "6px" }}
+          >
             <Activity size={16} /> Check Symptoms
           </button>
           <button onClick={() => {
-            if (lastSymptom) { sendMessage(`Suggest a specialist doctor for: ${lastSymptom}`); }
-            else { setMode("specialist"); }
-          }} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            if (mode === "specialist") {
+              setMode(null);
+            } else {
+              setMode("specialist");
+            }
+          }} className={mode === "specialist" ? "quick-action-active" : ""} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <Stethoscope size={16} /> Find Specialist
-          </button>
-          <button onClick={() => setMode(null)} style={{ display: mode ? "flex" : "none", alignItems: "center", gap: "6px", background: "#fff0f0", color: "#c0392b", borderColor: "#e57373" }}>
-            <X size={14} /> Cancel
           </button>
         </div>
 

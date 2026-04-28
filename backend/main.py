@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from routes.chat import router as chat_router
+from routes.auth import router as auth_router
 import whisper
 import tempfile
 import shutil
@@ -20,6 +21,7 @@ app.add_middleware(
 )
 
 app.include_router(chat_router)
+app.include_router(auth_router)
 
 @app.post("/transcribe")
 def transcribe_audio(file: UploadFile = File(...)):

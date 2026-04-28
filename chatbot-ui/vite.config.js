@@ -7,18 +7,11 @@ export default defineConfig({
   server: {
     https: true,
     proxy: {
-      '/chat': {
-        target: 'http://127.0.0.1:8000',
-        changeOrigin: true,
-      },
-      '/transcribe': {
-        target: 'http://127.0.0.1:8000',
-        changeOrigin: true,
-      },
-      '/verify-image': {
-        target: 'http://127.0.0.1:8000',
-        changeOrigin: true,
-      }
+      '/chat': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+      '/transcribe': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+      '/verify-image': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+      '/login': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+      '/register': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
     }
   }
 })

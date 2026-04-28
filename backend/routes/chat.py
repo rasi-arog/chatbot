@@ -1,18 +1,21 @@
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from datetime import datetime, timezone
+from typing import Optional
 import tempfile, shutil, os
-from models.message import ChatRequest
+from models.message import ChatRequest, SessionRenameRequest
 from config.db import messages_collection
 from services.agent import agent
 from services.memory import save_to_memory, get_memory, clear_memory
 from services.image_verify import verify_image
+from services.auth import get_current_user
 
 router = APIRouter()
 
 @router.post("/chat")
-def chat(req: ChatRequest):
+def chat(req: ChatRequest, current_user: str = Depends(get_current_user)):
+    user_id = current_user
     client_msg = {
-        "user_id": req.user_id,
+        "user_id": user_id,
         "session_id": req.session_id,
         "message": req.message,
         "sender": "client",
@@ -30,7 +33,7 @@ def chat(req: ChatRequest):
     structured = result["output"]  # dict with type, message, data
 
     bot_msg = {
-        "user_id": req.user_id,
+        "user_id": user_id,
         "session_id": req.session_id,
         "message": structured.get("message", ""),
         "type": structured.get("type", "text"),
@@ -43,26 +46,46 @@ def chat(req: ChatRequest):
 
     return structured
 
+@router.get("/chat/sessions")
 @router.get("/chat/sessions/{user_id}")
-def get_sessions(user_id: str):
+def get_sessions(user_id: Optional[str] = None, current_user: str = Depends(get_current_user)):
     pipeline = [
-        {"$match": {"user_id": user_id}},
-        {"$sort": {"created_at": -1}},
-        {"$group": {"_id": "$session_id", "last_message": {"$first": "$created_at"}}},
+        {"$match": {"user_id": current_user}},
+        {"$sort": {"created_at": 1}},
+        {
+            "$group": {
+                "_id": "$session_id",
+                "title": {"$first": "$title"},
+                "first_message": {"$first": "$message"},
+                "last_message": {"$last": "$created_at"},
+            }
+        },
         {"$sort": {"last_message": -1}},
     ]
     sessions = list(messages_collection.aggregate(pipeline))
-    return {"sessions": [s["_id"] for s in sessions]}
+    return {
+        "sessions": [
+            {
+                "id": s["_id"],
+                "title": (s.get("title") or s.get("first_message") or "New chat")[:60],
+            }
+            for s in sessions
+        ]
+    }
 
 @router.get("/chat/history/{session_id}")
-def get_history(session_id: str):
+def get_history(session_id: str, current_user: str = Depends(get_current_user)):
     messages = list(
-        messages_collection.find({"session_id": session_id}, {"_id": 0}).sort("created_at", 1)
+        messages_collection.find(
+            {"user_id": current_user, "session_id": session_id},
+            {"_id": 0},
+        ).sort("created_at", 1)
     )
     return {"messages": messages}
 
 @router.post("/verify-image")
-async def verify_image_api(file: UploadFile = File(...), user_id: str = Form("1"), session_id: str = Form("")):
+async def verify_image_api(file: UploadFile = File(...), user_id: str = Form("1"), session_id: str = Form(""), current_user: str = Depends(get_current_user)):
+    user_id = current_user
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
         shutil.copyfileobj(file.file, tmp)
         tmp_path = tmp.name
@@ -104,7 +127,22 @@ async def verify_image_api(file: UploadFile = File(...), user_id: str = Form("1"
         os.remove(tmp_path)
 
 @router.delete("/chat/session/{session_id}")
-def delete_session(session_id: str):
-    messages_collection.delete_many({"session_id": session_id})
+def delete_session(session_id: str, current_user: str = Depends(get_current_user)):
+    messages_collection.delete_many({"user_id": current_user, "session_id": session_id})
     clear_memory(session_id)
     return {"status": "deleted"}
+
+@router.patch("/chat/session/{session_id}/title")
+def rename_session(session_id: str, req: SessionRenameRequest, current_user: str = Depends(get_current_user)):
+    title = req.title.strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Title cannot be empty")
+
+    result = messages_collection.update_many(
+        {"user_id": current_user, "session_id": session_id},
+        {"$set": {"title": title[:60]}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    return {"id": session_id, "title": title[:60]}

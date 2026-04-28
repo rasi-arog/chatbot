@@ -18,7 +18,8 @@ CONVERSATION STYLE:
 
 TOOL USAGE (use only when clearly needed):
 - Symptoms or health advice requested → health_advice tool
-- User asks which doctor/specialist → doctor_suggestion tool
+- User asks which doctor/specialist, or gives a condition/specialty in specialist flow → doctor_suggestion tool
+- The doctor_suggestion tool should identify the right specialist first. Only show nearby doctor results when the user explicitly asks for nearby/find/show/list doctors.
 - User asks for nearby hospital/clinic → hospital_finder tool
 - Emergency (chest pain, can't breathe, unconscious, heart attack, stroke) → type "alert" immediately
 
@@ -92,7 +93,9 @@ class AgentWrapper:
             "cancer", "anxiety", "depression", "stomach", "chest", "breathing", "rash", "injury",
             "blood", "heart", "lung", "kidney", "throat", "ear", "eye", "back", "joint", "bone",
             "pregnancy", "mental", "health", "nearby", "near me", "find", "tired", "fatigue",
-            "nausea", "vomit", "dizziness", "swelling", "wound", "scar", "prescribed", "prescription"
+            "nausea", "vomit", "dizziness", "swelling", "wound", "scar", "prescribed", "prescription",
+            "pcod", "pcos", "period", "menstrual", "gynecologist", "gynaecologist", "orthopedic",
+            "dermatologist", "cardiologist", "neurologist", "dentist", "pediatrician"
         ]
         force_no_tools = not any(kw in inputs["input"].lower() for kw in health_keywords)
 

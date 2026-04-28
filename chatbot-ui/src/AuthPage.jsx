@@ -2,7 +2,7 @@ import { useState } from "react";
 import axios from "axios";
 import { HeartPulse } from "lucide-react";
 
-const API = import.meta.env.VITE_API_URL || "";
+const API = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
 export default function AuthPage({ onAuth }) {
   const [mode, setMode] = useState("login");

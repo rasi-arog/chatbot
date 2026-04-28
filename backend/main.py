@@ -24,7 +24,9 @@ app.add_middleware(
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "https://localhost:5173",
-        os.getenv("FRONTEND_URL", ""),  # your Vercel URL from env
+        os.getenv("FRONTEND_URL", ""),
+        os.getenv("FRONTEND_URL_2", ""),
+        os.getenv("FRONTEND_URL_3", ""),
     ],
     allow_credentials=True,
     allow_methods=["*"],

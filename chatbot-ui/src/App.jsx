@@ -3,7 +3,7 @@ import axios from "axios";
 import { HeartPulse, Building2, Activity, Stethoscope, Send, Plus, MessageSquare, MapPin, Pill, X, Menu, Mic, MicOff, ImagePlus, Paperclip, CheckCircle, XCircle, AlertTriangle, LogOut, Pencil } from "lucide-react";
 import AuthPage from "./AuthPage.jsx";
 
-const API = import.meta.env.VITE_API_URL || "";
+const API = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
 
 function HospitalCard({ hospital }) {

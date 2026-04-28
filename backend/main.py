@@ -2,7 +2,6 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from routes.chat import router as chat_router
 from routes.auth import router as auth_router
-import whisper
 import tempfile
 import shutil
 import os
@@ -10,7 +9,14 @@ import subprocess
 
 app = FastAPI()
 
-whisper_model = whisper.load_model("base")
+whisper_model = None
+
+def get_whisper_model():
+    global whisper_model
+    if whisper_model is None:
+        import whisper
+        whisper_model = whisper.load_model("base")
+    return whisper_model
 
 app.add_middleware(
     CORSMiddleware,
@@ -42,7 +48,7 @@ def transcribe_audio(file: UploadFile = File(...)):
             stderr=subprocess.DEVNULL,
             check=True,
         )
-        result = whisper_model.transcribe(wav_path, fp16=False, temperature=0, language="en")
+        result = get_whisper_model().transcribe(wav_path, fp16=False, temperature=0, language="en")
         return {"text": result["text"].strip()}
     except subprocess.CalledProcessError:
         return {"text": ""}

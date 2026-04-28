@@ -11,6 +11,7 @@ langchain-groq
 langchain-google-genai
 langsmith
 openai-whisper
+torch
 Pillow
 requests
 google-cloud-storage

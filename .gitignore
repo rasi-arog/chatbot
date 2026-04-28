@@ -1,36 +1,25 @@
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
-.env
-*.env.*
-*.egg-info/
-.venv/
 venv/
-env/
+.venv/
+*.egg-info/
 
-# Credentials & secrets
+# Env
+.env
+*.env
+
+# Credentials
 service_account.json
-*.json.key
-*.pem
-*.key
 
-# Temp / uploaded files
-tmp/
-*.webm
-*.wav
-*.jpg
-*.jpeg
-*.png
-*.gif
+# Node
+node_modules/
+dist/
+.cache/
 
-# Test cache
-.pytest_cache/
-.coverage
-htmlcov/
-
-# IDE
-.vscode/
-.idea/
+# Bun
+bun.lockb
 
 # OS
 .DS_Store

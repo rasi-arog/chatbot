@@ -14,7 +14,12 @@ whisper_model = whisper.load_model("base")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "https://localhost:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://localhost:5173",
+        os.getenv("FRONTEND_URL", ""),  # your Vercel URL from env
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

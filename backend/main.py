@@ -6,17 +6,9 @@ import tempfile
 import shutil
 import os
 import subprocess
+from groq import Groq
 
 app = FastAPI()
-
-whisper_model = None
-
-def get_whisper_model():
-    global whisper_model
-    if whisper_model is None:
-        import whisper
-        whisper_model = whisper.load_model("base")
-    return whisper_model
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,33 +29,25 @@ app.include_router(chat_router)
 app.include_router(auth_router)
 
 @app.post("/transcribe")
-def transcribe_audio(file: UploadFile = File(...)):
+async def transcribe_audio(file: UploadFile = File(...)):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
         shutil.copyfileobj(file.file, tmp)
         webm_path = tmp.name
-
-    wav_path = webm_path.replace(".webm", ".wav")
     try:
-        subprocess.run(
-            ["ffmpeg", "-y", "-i", webm_path, wav_path],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=True,
-        )
-        result = get_whisper_model().transcribe(wav_path, fp16=False, temperature=0, language="en")
-        return {"text": result["text"].strip()}
-    except subprocess.CalledProcessError:
-        return {"text": ""}
+        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        with open(webm_path, "rb") as f:
+            transcription = client.audio.transcriptions.create(
+                file=(file.filename or "audio.webm", f),
+                model="whisper-large-v3",
+                language="en",
+            )
+        return {"text": transcription.text.strip()}
     except Exception as e:
-        err_str = str(e)
-        if "End of file" in err_str or "Failed to load audio" in err_str or "cannot reshape tensor" in err_str:
-            return {"text": ""}
-        raise e
+        print(f"[TRANSCRIBE ERROR] {e}")
+        return {"text": ""}
     finally:
         os.remove(webm_path)
-        if os.path.exists(wav_path):
-            os.remove(wav_path)
 
 @app.get("/")
 def home():
-    return {"message": "Day 2 backend running"}
+    return {"message": "Healthcare chatbot backend running"}

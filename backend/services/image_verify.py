@@ -18,7 +18,8 @@ def _get_llm():
 def _image_content(image_path: str) -> dict:
     if os.getenv("GCS_BUCKET_NAME"):
         from services.gcs_storage import upload_to_gcs
-        return {"type": "image_url", "image_url": {"url": upload_to_gcs(image_path)}}
+        url = upload_to_gcs(image_path)
+        return {"type": "image_url", "image_url": {"url": url}}
     with open(image_path, "rb") as f:
         data = base64.b64encode(f.read()).decode("utf-8")
     return {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{data}"}}

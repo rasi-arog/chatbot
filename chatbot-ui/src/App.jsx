@@ -3,7 +3,9 @@ import axios from "axios";
 import { HeartPulse, Building2, Activity, Stethoscope, Send, Plus, MessageSquare, MapPin, Pill, X, Menu, Mic, MicOff, ImagePlus, Paperclip, CheckCircle, XCircle, AlertTriangle, LogOut, Pencil } from "lucide-react";
 import AuthPage from "./AuthPage.jsx";
 
-const API = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+const API = import.meta.env.DEV
+  ? ""
+  : (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
 
 function HospitalCard({ hospital }) {
@@ -152,6 +154,62 @@ function FormattedMessage({ text }) {
   );
 }
 
+const DIET_CONDITION_OPTIONS = [
+  { key: "diabetes", label: "Diabetes" },
+  { key: "bp", label: "High BP" },
+  { key: "thyroid", label: "Thyroid" },
+  { key: "pcod", label: "PCOD/PCOS" },
+  { key: "cholesterol", label: "Cholesterol" },
+  { key: "kidney", label: "Kidney" },
+  { key: "weight_loss", label: "Weight Loss" },
+  { key: "none", label: "None" },
+];
+
+function DietConditionSelector({ symptom, onSubmit }) {
+  const [selected, setSelected] = useState([]);
+
+  const toggleCondition = (key) => {
+    setSelected(prev => {
+      if (key === "none") return prev.includes("none") ? [] : ["none"];
+      const withoutNone = prev.filter(item => item !== "none");
+      return withoutNone.includes(key)
+        ? withoutNone.filter(item => item !== key)
+        : [...withoutNone, key];
+    });
+  };
+
+  const submitDiet = () => {
+    const conditions = selected.length ? selected.join(",") : "none";
+    onSubmit(`diet:${symptom}|${conditions}`);
+  };
+
+  return (
+    <>
+      <div className="follow-up-chips" style={{ marginTop: "6px" }}>
+        {DIET_CONDITION_OPTIONS.map(option => {
+          const active = selected.includes(option.key);
+          return (
+            <button
+              key={option.key}
+              className={`chip diet-chip${active ? " chip-primary chip-selected" : ""}`}
+              onClick={() => toggleCondition(option.key)}
+              aria-pressed={active}
+            >
+              {active && <CheckCircle size={13} />}
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="diet-submit-row">
+        <button className="chip chip-primary" onClick={submitDiet}>
+          <Pill size={13} /> Get Diet Plan
+        </button>
+      </div>
+    </>
+  );
+}
+
 function BotMessage({ msg, onImageClick, onChipClick }) {
   if (msg.type === "hospital_list") {
     return (
@@ -213,17 +271,72 @@ function BotMessage({ msg, onImageClick, onChipClick }) {
 
   if (msg.type === "health_advice") {
     const doctorType = msg.data?.doctor_type;
+    const symptom = msg.data?.symptom || "";
     return (
       <div className="bot-msg structured">
         <div className="structured-label" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
           <Pill size={14} /> Health Advice
         </div>
         <FormattedMessage text={msg.message} />
+        <div style={{ marginTop: "12px", fontSize: "13px", color: "#554e44", fontWeight: 600 }}>
+          To give you a personalized diet plan, do you have any of these conditions?
+        </div>
+        <DietConditionSelector symptom={symptom} onSubmit={onChipClick} />
+        <div className="follow-up-chips" style={{ marginTop: "6px", display: "none" }}>
+          <button className="chip chip-primary" onClick={() => onChipClick(`diet:${symptom}|diabetes`)}>🩸 Diabetes</button>
+          <button className="chip chip-primary" onClick={() => onChipClick(`diet:${symptom}|bp`)}>💊 High BP</button>
+          <button className="chip chip-primary" onClick={() => onChipClick(`diet:${symptom}|thyroid`)}>🦋 Thyroid</button>
+          <button className="chip chip-primary" onClick={() => onChipClick(`diet:${symptom}|pcod`)}>PCOD/PCOS</button>
+          <button className="chip chip-primary" onClick={() => onChipClick(`diet:${symptom}|cholesterol`)}>Cholesterol</button>
+          <button className="chip chip-primary" onClick={() => onChipClick(`diet:${symptom}|kidney`)}>Kidney</button>
+          <button className="chip chip-primary" onClick={() => onChipClick(`diet:${symptom}|weight_loss`)}>Weight Loss</button>
+          <button className="chip" onClick={() => onChipClick(`diet:${symptom}|none`)}>✅ None</button>
+        </div>
         <div className="follow-up-chips">
           {doctorType && (
-            <button className="chip chip-primary" onClick={() => onChipClick(`nearby_doctor:${doctorType}`)}><Stethoscope size={13} /> See {doctorType}s</button>
+            <button className="chip" onClick={() => onChipClick(`nearby_doctor:${doctorType}`)}><Stethoscope size={13} /> See {doctorType}s</button>
           )}
-          <button className="chip chip-primary" onClick={() => onChipClick("Find nearby hospital")}><Building2 size={13} /> Nearby Hospitals</button>
+          <button className="chip" onClick={() => onChipClick("Find nearby hospital")}><Building2 size={13} /> Nearby Hospitals</button>
+          <button className="chip" onClick={() => onChipClick("symptoms")}><Activity size={13} /> Check Another Symptom</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (msg.type === "diet_plan") {
+    const { eat = [], avoid = [], tips = [], condition_label = "", symptom = "" } = msg.data || {};
+    return (
+      <div className="bot-msg structured">
+        <div className="structured-label" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          🥗 Personalized Diet Plan
+        </div>
+        {symptom && condition_label && (
+          <div style={{ fontSize: "13px", fontWeight: 700, color: "#3e3831", marginBottom: "10px" }}>
+            {symptom.charAt(0).toUpperCase() + symptom.slice(1)} + {condition_label}
+          </div>
+        )}
+        {eat.length > 0 && (
+          <div style={{ marginBottom: "8px" }}>
+            <div style={{ fontSize: "12px", fontWeight: 700, color: "#3e8166", marginBottom: "4px" }}>✅ EAT</div>
+            {eat.map((item, i) => <div key={i} style={{ fontSize: "13px", color: "#3e3831", paddingLeft: "8px" }}>• {item}</div>)}
+          </div>
+        )}
+        {avoid.length > 0 && (
+          <div style={{ marginBottom: "8px" }}>
+            <div style={{ fontSize: "12px", fontWeight: 700, color: "#c0392b", marginBottom: "4px" }}>❌ AVOID</div>
+            {avoid.map((item, i) => <div key={i} style={{ fontSize: "13px", color: "#3e3831", paddingLeft: "8px" }}>• {item}</div>)}
+          </div>
+        )}
+        {tips.length > 0 && (
+          <div style={{ marginBottom: "8px" }}>
+            <div style={{ fontSize: "12px", fontWeight: 700, color: "#e67e22", marginBottom: "4px" }}>💡 CARE TIPS</div>
+            {tips.map((item, i) => <div key={i} style={{ fontSize: "13px", color: "#3e3831", paddingLeft: "8px" }}>• {item}</div>)}
+          </div>
+        )}
+        <div style={{ marginTop: "8px", fontSize: "11px", color: "#928b7e", fontStyle: "italic" }}>
+          ⚠ This is general dietary guidance. Please consult a doctor for your specific medical condition.
+        </div>
+        <div className="follow-up-chips">
           <button className="chip" onClick={() => onChipClick("symptoms")}><Activity size={13} /> Check Another Symptom</button>
         </div>
       </div>
@@ -557,6 +670,28 @@ export default function App() {
     return raw;
   };
 
+  const formatDietCommandForChat = (command) => {
+    if (!command.startsWith("diet:")) return command;
+    const query = command.replace("diet:", "");
+    const [symptom = "this condition", condition = "none"] = query.split("|");
+    const labels = {
+      diabetes: "diabetes",
+      bp: "high BP",
+      thyroid: "thyroid",
+      pcod: "PCOD/PCOS",
+      cholesterol: "cholesterol",
+      kidney: "kidney concern",
+      weight_loss: "weight loss",
+      none: "no specific condition",
+    };
+    const conditionLabel = condition
+      .split(",")
+      .map(item => labels[item.trim()] || item.trim())
+      .filter(Boolean)
+      .join(" + ") || "no specific condition";
+    return `Give me a personalized diet plan for ${symptom || "this condition"} with ${conditionLabel}.`;
+  };
+
   const sendMessage = async (text) => {
     const raw = (text ?? input).trim();
     const hasImages = pendingImages.length > 0;
@@ -570,6 +705,7 @@ export default function App() {
 
     const msg = text ? raw : formatMessage(raw);
     if (!msg.trim() && !hasImages) return;
+    const visibleUserMessage = formatDietCommandForChat(msg);
 
     setMode(null);
     setInput("");
@@ -585,7 +721,7 @@ export default function App() {
     })));
     imagesToSend.forEach(img => URL.revokeObjectURL(img.preview));
 
-    if (msg.trim()) setMessages(prev => [...prev, { sender: "user", type: "text", message: msg }]);
+    if (msg.trim()) setMessages(prev => [...prev, { sender: "user", type: "text", message: visibleUserMessage }]);
     imagesToSend.forEach((img, idx) => {
       setMessages(prev => [...prev, { sender: "user", type: "image_file", message: img.file.name, previewUrl: dataUrls[idx] }]);
     });
@@ -612,7 +748,7 @@ export default function App() {
         }, { headers: authHeaders() });
         const botReply = res.data;
         setMessages(prev => [...prev, { sender: "bot", ...botReply }]);
-        addSessionToSidebar(sessionId, msg);
+        addSessionToSidebar(sessionId, visibleUserMessage);
         loadSessions();
       }
     } catch {
@@ -781,6 +917,8 @@ export default function App() {
                   } else if (action.startsWith("nearby_doctor:")) {
                     const doctorType = action.replace("nearby_doctor:", "");
                     findNearbyDoctors(doctorType);
+                  } else if (action.startsWith("diet:")) {
+                    sendMessage(action);
                   } else {
                     sendMessage(action);
                   }

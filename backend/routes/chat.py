@@ -11,18 +11,44 @@ from services.auth import get_current_user
 
 router = APIRouter()
 
+_DIET_CONDITION_LABELS = {
+    "diabetes": "diabetes",
+    "bp": "high BP",
+    "thyroid": "thyroid",
+    "pcod": "PCOD/PCOS",
+    "cholesterol": "cholesterol",
+    "kidney": "kidney concern",
+    "weight_loss": "weight loss",
+    "none": "no specific condition",
+}
+
+
+def _display_message(message: str) -> str:
+    if not message.lower().startswith("diet:"):
+        return message
+    symptom, _, condition = message.split(":", 1)[1].partition("|")
+    condition_labels = [
+        _DIET_CONDITION_LABELS.get(item.strip(), item.strip())
+        for item in condition.split(",")
+        if item.strip()
+    ]
+    condition_label = " + ".join(condition_labels) or "no specific condition"
+    return f"Give me a personalized diet plan for {symptom.strip() or 'this condition'} with {condition_label}."
+
+
 @router.post("/chat")
 def chat(req: ChatRequest, current_user: str = Depends(get_current_user)):
     user_id = current_user
+    stored_client_message = _display_message(req.message)
     client_msg = {
         "user_id": user_id,
         "session_id": req.session_id,
-        "message": req.message,
+        "message": stored_client_message,
         "sender": "client",
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     messages_collection.insert_one(client_msg)
-    save_to_memory(req.session_id, {"sender": "client", "message": req.message})
+    save_to_memory(req.session_id, {"sender": "client", "message": stored_client_message})
 
     result = agent.invoke({
         "input": req.message,

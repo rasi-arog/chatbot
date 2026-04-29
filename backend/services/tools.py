@@ -305,6 +305,350 @@ def health_advice(symptom: str) -> dict:
     }
 
 
+# Diet data: symptom_key -> condition -> {eat, avoid, tips}
+_DIET_MAP = {
+    "default": {
+        "diabetes": {
+            "eat": ["Vegetable soup", "Green leafy vegetables", "Whole grains (roti, brown rice)", "Apple", "Guava", "Papaya", "Warm lemon water (no sugar)"],
+            "avoid": ["Sugar and sweets", "Fruit juices", "White rice in large quantity", "Processed foods"],
+            "tips": ["Monitor blood sugar regularly", "Eat small frequent meals", "Stay active with light walks"],
+        },
+        "bp": {
+            "eat": ["Banana (rich in potassium)", "Oats", "Boiled/steamed vegetables", "Low-fat dairy", "Garlic"],
+            "avoid": ["Salt-heavy food", "Pickles", "Fried items", "Processed meats", "Caffeine"],
+            "tips": ["Limit sodium to under 1500mg/day", "Stay well hydrated", "Avoid stress"],
+        },
+        "thyroid": {
+            "eat": ["Iodine-rich foods (eggs, dairy)", "Selenium-rich foods (Brazil nuts, tuna)", "Fresh fruits and vegetables", "Whole grains"],
+            "avoid": ["Raw cruciferous vegetables in excess", "Soy products in excess", "Processed foods"],
+            "tips": ["Take thyroid medication on empty stomach", "Maintain consistent meal times"],
+        },
+        "pcod": {
+            "eat": ["High-fiber vegetables", "Whole grains", "Lentils and beans", "Lean protein", "Nuts and seeds", "Low-GI fruits"],
+            "avoid": ["Sugary foods", "Refined flour", "Fried snacks", "Sweetened drinks"],
+            "tips": ["Keep meal timings regular", "Include daily walking or light exercise", "Discuss cycle changes with a Gynecologist"],
+        },
+        "cholesterol": {
+            "eat": ["Oats", "Barley", "Beans and lentils", "Vegetables", "Fruits", "Nuts in small portions", "Fish or lean protein"],
+            "avoid": ["Fried foods", "Butter and ghee in excess", "Processed meats", "Bakery items", "Trans fats"],
+            "tips": ["Choose steamed or grilled foods", "Increase soluble fiber", "Check lipid levels as advised by your doctor"],
+        },
+        "kidney": {
+            "eat": ["Fresh low-salt meals", "Rice or roti in moderate portions", "Cooked vegetables as advised", "Apple", "Cabbage", "Cauliflower"],
+            "avoid": ["High-salt packaged foods", "Excess protein", "Cola drinks", "Processed meats", "Potassium-heavy foods unless doctor-approved"],
+            "tips": ["Kidney diets depend on lab values", "Ask a Nephrologist about protein, potassium, and fluid limits", "Do not start supplements without medical advice"],
+        },
+        "weight_loss": {
+            "eat": ["Vegetables", "Lean protein", "Dal or beans", "Whole grains in measured portions", "Fruit instead of sweets", "Plenty of water"],
+            "avoid": ["Sugary drinks", "Deep-fried snacks", "Large late-night meals", "Highly processed foods"],
+            "tips": ["Aim for gradual weight loss", "Pair diet with regular activity", "Do not crash diet, especially if you have a medical condition"],
+        },
+        "none": {
+            "eat": ["Khichdi", "Vegetable soup", "Idli", "Coconut water", "Orange", "Apple"],
+            "avoid": ["Oily and spicy food", "Heavy meals", "Cold drinks"],
+            "tips": ["Drink warm water frequently", "Rest well", "Eat light and easy-to-digest food"],
+        },
+    },
+    "fever": {
+        "diabetes": {
+            "eat": ["Warm water with lemon (no sugar)", "Vegetable soup", "Green leafy vegetables", "Whole grain roti", "Apple", "Guava", "Papaya"],
+            "avoid": ["Sugar and sweets", "Fruit juices", "White rice in large quantity"],
+            "tips": ["Monitor blood sugar closely — fever can spike it", "Stay hydrated with sugar-free fluids", "Eat small meals every 3-4 hours"],
+        },
+        "bp": {
+            "eat": ["Banana", "Oats porridge", "Boiled vegetables", "Coconut water (low sodium)", "Warm herbal tea"],
+            "avoid": ["Salt-heavy food", "Pickles", "Fried items", "Caffeine"],
+            "tips": ["Monitor BP more frequently during fever", "Stay well hydrated", "Rest and avoid exertion"],
+        },
+        "thyroid": {
+            "eat": ["Warm soups", "Eggs (well cooked)", "Fresh fruits", "Whole grains", "Warm water"],
+            "avoid": ["Raw cabbage/broccoli in excess", "Soy products", "Cold foods"],
+            "tips": ["Continue thyroid medication as prescribed", "Fever can affect thyroid levels — consult doctor if prolonged"],
+        },
+        "none": {
+            "eat": ["Khichdi", "Vegetable soup", "Idli", "Coconut water", "Orange", "Apple"],
+            "avoid": ["Oily and spicy food", "Heavy meals", "Cold drinks"],
+            "tips": ["Drink warm water frequently", "Rest well", "Monitor temperature every few hours"],
+        },
+    },
+    "cough": {
+        "diabetes": {
+            "eat": ["Warm turmeric milk (no sugar)", "Ginger tea (no sugar)", "Honey (small amount)", "Warm soups", "Soft cooked vegetables"],
+            "avoid": ["Cold drinks", "Ice cream", "Sugary foods", "Dairy in excess"],
+            "tips": ["Steam inhalation helps", "Check cough syrups — many contain sugar"],
+        },
+        "bp": {
+            "eat": ["Warm ginger tea", "Honey with warm water", "Vegetable broth (low salt)", "Steamed vegetables"],
+            "avoid": ["Salty snacks", "Cold drinks", "Processed foods"],
+            "tips": ["Avoid OTC decongestants — they can raise BP", "Steam inhalation is safe"],
+        },
+        "thyroid": {
+            "eat": ["Warm fluids", "Honey", "Ginger tea", "Soft cooked foods"],
+            "avoid": ["Cold foods", "Excess dairy", "Raw cruciferous vegetables"],
+            "tips": ["Stay warm", "Consult doctor before taking cough medicine with thyroid condition"],
+        },
+        "none": {
+            "eat": ["Warm water with honey and ginger", "Turmeric milk", "Vegetable soup"],
+            "avoid": ["Cold drinks", "Ice cream", "Fried food", "Dairy in excess"],
+            "tips": ["Gargle with warm salt water", "Stay hydrated", "Avoid cold air"],
+        },
+    },
+    "headache": {
+        "diabetes": {
+            "eat": ["Water (stay hydrated)", "Magnesium-rich foods (spinach, almonds)", "Whole grains", "Low-GI fruits"],
+            "avoid": ["Skipping meals (causes blood sugar drop)", "Caffeine excess", "Sugary foods"],
+            "tips": ["Check blood sugar — headache can signal low/high sugar", "Eat regular meals", "Rest in a quiet dark room"],
+        },
+        "bp": {
+            "eat": ["Banana", "Leafy greens", "Water", "Low-sodium foods"],
+            "avoid": ["Salt", "Caffeine", "Alcohol", "Processed foods"],
+            "tips": ["Check BP immediately", "Rest in a quiet room", "Avoid screen time"],
+        },
+        "thyroid": {
+            "eat": ["Hydrating foods", "Magnesium-rich foods", "Whole grains"],
+            "avoid": ["Caffeine", "Processed foods", "Skipping meals"],
+            "tips": ["Thyroid imbalance can cause headaches — check levels if frequent", "Rest and stay hydrated"],
+        },
+        "none": {
+            "eat": ["Water", "Ginger tea", "Banana", "Almonds", "Light meals"],
+            "avoid": ["Caffeine excess", "Skipping meals", "Bright screens"],
+            "tips": ["Rest in a dark quiet room", "Apply cold/warm compress", "Stay hydrated"],
+        },
+    },
+    "stomach": {
+        "diabetes": {
+            "eat": ["Plain rice (small portion)", "Boiled vegetables", "Plain yogurt (unsweetened)", "Banana", "Warm water"],
+            "avoid": ["Spicy food", "Oily food", "Sugary drinks", "Raw vegetables"],
+            "tips": ["Eat very small meals", "Monitor blood sugar — stomach issues affect absorption", "Stay hydrated with sugar-free fluids"],
+        },
+        "bp": {
+            "eat": ["Plain rice", "Boiled vegetables", "Banana", "Low-sodium yogurt", "Warm water"],
+            "avoid": ["Salty food", "Pickles", "Spicy food", "Fried items"],
+            "tips": ["Avoid antacids high in sodium", "Eat small frequent meals", "Stay hydrated"],
+        },
+        "thyroid": {
+            "eat": ["Easy-to-digest foods", "Boiled vegetables", "Plain rice", "Warm soups"],
+            "avoid": ["Raw cruciferous vegetables", "High-fiber foods during acute pain", "Spicy food"],
+            "tips": ["Thyroid issues can cause digestive problems — consult doctor if persistent"],
+        },
+        "none": {
+            "eat": ["Khichdi", "Plain rice", "Banana", "Yogurt", "Warm water", "Coconut water"],
+            "avoid": ["Spicy food", "Oily food", "Caffeine"],
+            "tips": ["Eat small meals", "Avoid lying down immediately after eating", "Stay hydrated"],
+        },
+    },
+}
+
+_ALLERGY_KEYWORDS = {
+    "seafood": ["prawn", "shrimp", "fish", "seafood", "crab", "lobster", "shellfish"],
+    "dairy": ["milk", "dairy", "lactose", "cheese", "butter", "curd", "yogurt allerg"],
+    "nuts": ["peanut", "cashew", "almond", "walnut", "nut allerg", "tree nut"],
+    "gluten": ["gluten", "wheat allerg", "celiac"],
+    "egg": ["egg allerg"],
+    "soy": ["soy allerg", "soya allerg"],
+}
+
+_ALLERGY_AVOID = {
+    "seafood": "All seafood (prawns, fish, crab) — strictly avoid",
+    "dairy": "Milk, curd, cheese, butter — avoid all dairy",
+    "nuts": "Peanuts, cashews, almonds and all tree nuts — strictly avoid",
+    "gluten": "Wheat, roti, bread, pasta — avoid gluten-containing foods",
+    "egg": "Eggs and egg-containing products — strictly avoid",
+    "soy": "Soy milk, tofu, soya products — strictly avoid",
+}
+
+
+def _resolve_allergies(text: str) -> list:
+    text_lower = text.lower()
+    found = []
+    for allergy, keywords in _ALLERGY_KEYWORDS.items():
+        if any(kw in text_lower for kw in keywords):
+            found.append(allergy)
+    return found
+
+
+
+_CONDITION_LABELS = {
+    "diabetes": "Diabetes (Sugar)",
+    "bp": "High Blood Pressure",
+    "thyroid": "Thyroid",
+    "pcod": "PCOD / PCOS",
+    "cholesterol": "High Cholesterol",
+    "kidney": "Kidney / Renal Concern",
+    "weight_loss": "Weight Loss Goal",
+    "none": "No specific condition",
+}
+
+_CONDITION_KEYWORDS = {
+    "diabetes": ["diabetes", "diabetic", "sugar", "blood sugar"],
+    "bp": ["bp", "blood pressure", "hypertension", "high bp"],
+    "thyroid": ["thyroid", "hypothyroid", "hyperthyroid"],
+    "pcod": ["pcod", "pcos", "polycystic"],
+    "cholesterol": ["cholesterol", "lipid", "triglyceride"],
+    "kidney": ["kidney", "renal", "ckd"],
+    "weight_loss": ["weight loss", "lose weight", "obesity", "overweight"],
+    "none": ["none", "no condition", "nothing", "normal", "healthy", "no"],
+}
+
+_SYMPTOM_CATEGORY_MAP = [
+    ("shortness of breath", "cough"),
+    ("body pain", "fever"),
+    ("dengue", "fever"),
+    ("malaria", "fever"),
+    ("viral", "fever"),
+    ("viral fever", "fever"),
+    ("flu", "fever"),
+    ("covid", "fever"),
+    ("fever", "fever"),
+    ("cold", "cough"),
+    ("cough", "cough"),
+    ("throat", "cough"),
+    ("asthma", "cough"),
+    ("breathing", "cough"),
+    ("migraine", "headache"),
+    ("headache", "headache"),
+    ("dizziness", "headache"),
+    ("stomach", "stomach"),
+    ("gas", "stomach"),
+    ("acidity", "stomach"),
+    ("indigestion", "stomach"),
+    ("diarrhea", "stomach"),
+    ("constipation", "stomach"),
+    ("vomit", "stomach"),
+    ("nausea", "stomach"),
+]
+
+
+def _resolve_condition(text: str):
+    text_lower = text.lower()
+    for condition, keywords in _CONDITION_KEYWORDS.items():
+        if any(kw in text_lower for kw in keywords):
+            return condition
+    return None
+
+
+def _resolve_conditions(text: str):
+    text_lower = text.lower()
+    found = []
+    for condition, keywords in _CONDITION_KEYWORDS.items():
+        if condition == "none":
+            continue
+        if any(kw in text_lower for kw in keywords):
+            found.append(condition)
+    if found:
+        return found
+    if any(kw in text_lower for kw in _CONDITION_KEYWORDS["none"]):
+        return ["none"]
+    return []
+
+
+def _resolve_symptom_key(symptom: str) -> str:
+    symptom_lower = symptom.lower()
+    for keyword, category in sorted(_SYMPTOM_CATEGORY_MAP, key=lambda x: -len(x[0])):
+        if keyword in symptom_lower:
+            return category
+    return "default"
+
+
+def _unique(items):
+    result = []
+    seen = set()
+    for item in items:
+        normalized = item.lower()
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        result.append(item)
+    return result
+
+
+def personalized_diet(query: str) -> dict:
+    """query format: 'symptom|condition' e.g. 'fever|diabetes,bp'"""
+    parts = query.split("|", 1)
+    symptom = parts[0].strip() if parts else query
+    condition_raw = parts[1].strip() if len(parts) > 1 else ""
+
+    # Detect allergies from the full query
+    allergies = _resolve_allergies(query)
+
+    conditions = _resolve_conditions(condition_raw) if condition_raw else []
+    if not conditions:
+        conditions = _resolve_conditions(symptom)
+    if not conditions:
+        conditions = ["none"]
+
+    active_conditions = [c for c in conditions if c != "none"]
+    if len(active_conditions) > 3:
+        labels = ", ".join(_CONDITION_LABELS.get(c, c.title()) for c in active_conditions)
+        return {
+            "type": "text",
+            "message": f"You mentioned multiple medical conditions ({labels}). For safety, it's best to consult a doctor or dietitian for a personalized diet plan.\n\nI can provide general dietary guidance if you'd like.",
+            "data": {"symptom": symptom, "conditions": active_conditions},
+        }
+
+    symptom_key = _resolve_symptom_key(symptom)
+
+    diet_source = _DIET_MAP.get(symptom_key, _DIET_MAP["default"])
+    diets = [
+        diet_source.get(condition)
+        or _DIET_MAP["default"].get(condition)
+        or _DIET_MAP["default"]["none"]
+        for condition in conditions
+    ]
+    diet = {
+        "eat": _unique(item for plan in diets for item in plan["eat"]),
+        "avoid": _unique(item for plan in diets for item in plan["avoid"]),
+        "tips": _unique(item for plan in diets for item in plan["tips"]),
+    }
+
+    # Inject allergy avoids
+    for allergy in allergies:
+        avoid_str = _ALLERGY_AVOID[allergy]
+        if avoid_str.lower() not in [a.lower() for a in diet["avoid"]]:
+            diet["avoid"].insert(0, avoid_str)
+    if allergies:
+        diet["tips"].insert(0, "Avoid all allergens strictly — even small amounts can cause reactions")
+
+    # Build readable labels:
+    # - omit the "none" condition label unless it's the only thing we have
+    # - avoid polluting the header with raw user sentences (e.g., "I have fever...")
+    condition_label = " + ".join(_CONDITION_LABELS.get(c, c.title()) for c in active_conditions)
+    allergy_label = " + ".join(a.title() + " Allergy" for a in allergies)
+    full_label = " + ".join(filter(None, [condition_label, allergy_label]))
+    symptom_label = symptom_key.title() if symptom_key != "default" else "General"
+
+    eat_list = "\n".join(f"- {item}" for item in diet["eat"])
+    avoid_list = "\n".join(f"- {item}" for item in diet["avoid"])
+    tips_list = "\n".join(f"- {item}" for item in diet["tips"])
+
+    header = f"Personalized Diet Plan - {symptom_label}"
+    if full_label:
+        header = f"{header} + {full_label}"
+
+    message = (
+        f"{header}\n\n"
+        f"Eat:\n{eat_list}\n\n"
+        f"Avoid:\n{avoid_list}\n\n"
+        f"Care Tips:\n{tips_list}\n\n"
+        f"This is general dietary guidance. Please consult a doctor for your specific medical condition."
+    )
+
+    return {
+        "type": "diet_plan",
+        "message": message,
+        "data": {
+            "symptom": symptom,
+            "condition": conditions[0],
+            "conditions": conditions,
+            "condition_label": full_label,
+            "allergies": allergies,
+            "eat": diet["eat"],
+            "avoid": diet["avoid"],
+            "tips": diet["tips"],
+        },
+    }
+
+
 tools = [
     Tool(
         name="doctor_suggestion",
@@ -320,5 +664,10 @@ tools = [
         name="health_advice",
         func=health_advice,
         description="Use when user describes symptoms or asks for health advice. Input: the symptom or condition.",
+    ),
+    Tool(
+        name="personalized_diet",
+        func=personalized_diet,
+        description="Use when user provides their medical condition (diabetes, BP, thyroid, PCOD/PCOS, cholesterol, kidney, weight loss, or none) after receiving health advice, OR when user asks for a diet plan. Input format: 'symptom|condition' e.g. 'fever|diabetes', 'dengue|bp', or 'pcod|pcod'.",
     ),
 ]

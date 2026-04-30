@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
-import { HeartPulse, Building2, Activity, Stethoscope, Send, Plus, MessageSquare, MapPin, Pill, X, Menu, Mic, MicOff, ImagePlus, Paperclip, CheckCircle, XCircle, AlertTriangle, LogOut, Pencil } from "lucide-react";
+import { HeartPulse, Building2, Activity, Stethoscope, Send, Plus, MessageSquare, MapPin, Pill, X, Menu, Mic, MicOff, ImagePlus, Paperclip, CheckCircle, XCircle, AlertTriangle, LogOut, Pencil, Camera, FolderOpen } from "lucide-react";
 import AuthPage from "./AuthPage.jsx";
 
 const API = import.meta.env.DEV
@@ -425,12 +425,15 @@ export default function App() {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const attachMenuRef = useRef(null);
   const chatEndRef = useRef(null);
   const micBtnRef = useRef(null);
   const sendMessageRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
 
   const handleImageSelect = (e) => {
     const files = Array.from(e.target.files);
@@ -526,6 +529,17 @@ export default function App() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (!attachMenuOpen) return;
+    const handler = (e) => {
+      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target)) {
+        setAttachMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [attachMenuOpen]);
 
   const loadSessions = async (retries = 3) => {
     if (!userId) return;
@@ -966,8 +980,19 @@ export default function App() {
           )}
           <div className="input-box">
             <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleImageSelect} />
-            <div className="input-wrapper">
-              <button className="attach-btn" onClick={() => fileInputRef.current.click()} title="Attach image">
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={handleImageSelect} />
+            <div className="input-wrapper" ref={attachMenuRef}>
+              {attachMenuOpen && (
+                <div className="attach-menu">
+                  <button className="attach-menu-item" onClick={() => { cameraInputRef.current.click(); setAttachMenuOpen(false); }}>
+                    <Camera size={16} /> Camera
+                  </button>
+                  <button className="attach-menu-item" onClick={() => { fileInputRef.current.click(); setAttachMenuOpen(false); }}>
+                    <FolderOpen size={16} /> Upload Image
+                  </button>
+                </div>
+              )}
+              <button className="attach-btn" onClick={() => setAttachMenuOpen(prev => !prev)} title="Attach">
                 <Plus size={18} />
               </button>
               <input

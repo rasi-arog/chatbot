@@ -975,3 +975,41 @@ input:focus {
 
 .medicine-table tr:last-child td { border-bottom: none; }
 .medicine-table tr:nth-child(even) td { background: #faf7f0; }
+
+.attach-menu {
+  position: absolute;
+  bottom: 48px;
+  left: 0;
+  background: #fefdf9;
+  border: 1.5px solid #e2dcca;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  overflow: hidden;
+  z-index: 50;
+  min-width: 160px;
+}
+
+.attach-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  color: #3e3831;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  height: auto !important;
+  box-shadow: none !important;
+}
+
+.attach-menu-item:hover {
+  background: #f1eddf;
+  box-shadow: none !important;
+}
